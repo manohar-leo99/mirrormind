@@ -1,0 +1,318 @@
+MirrorMind
+DOC 4: Database Implementation
+PostgreSQL + Prisma ORM + ChromaDB + Redis via Docker
+
+1. Database Setup — Docker Compose
+For MVP development, run all databases locally using Docker. No cloud costs. Copilot must create the docker-compose.yml file first.
+
+Tell GitHub Copilot: 'Create this docker-compose.yml file in the root of the mirrormind project:
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: mirrormind
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mirrormind
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - '8001:8000'
+    volumes:
+      - chroma_data:/chroma/chroma
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
+
+To start all databases: run 'docker-compose up -d' from the mirrormind root folder.
+
+2. Prisma Schema — Complete PostgreSQL Schema
+This is the complete Prisma schema. GitHub Copilot must put this in: backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  githubId    String   @unique @map("github_id")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  memberships TeamMember[]
+  queries     Query[]
+  @@map("users")
+}
+
+model Team {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  plan         String   @default("free")
+  createdAt    DateTime @default(now()) @map("created_at")
+  members      TeamMember[]
+  connections  GithubConnection[]
+  queries      Query[]
+  prReviews    PRReview[]
+  subscription Subscription?
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  role      String   @default("developer")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  userId    String   @map("user_id")
+  teamId    String   @map("team_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  @@unique([userId, teamId])
+  @@map("team_members")
+}
+
+model GithubConnection {
+  id             String    @id @default(cuid())
+  teamId         String    @map("team_id")
+  repoUrl        String    @map("repo_url")
+  repoName       String    @map("repo_name")
+  status         String    @default("pending")
+  lastIngestedAt DateTime? @map("last_ingested_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  team           Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  ingestionJobs  IngestionJob[]
+  @@map("github_connections")
+}
+
+model IngestionJob {
+  id             String    @id @default(cuid())
+  teamId         String    @map("team_id")
+  connectionId   String    @map("connection_id")
+  status         String    @default("pending")
+  itemsProcessed Int       @default(0) @map("items_processed")
+  totalItems     Int?      @map("total_items")
+  errorMessage   String?   @map("error_message")
+  startedAt      DateTime? @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  connection     GithubConnection @relation(fields: [connectionId], references: [id])
+  @@map("ingestion_jobs")
+}
+
+model Query {
+  id             String   @id @default(cuid())
+  teamId         String   @map("team_id")
+  userId         String   @map("user_id")
+  conversationId String   @map("conversation_id")
+  question       String
+  answer         String
+  sourcesJson    Json?    @map("sources_json")
+  rating         Int?
+  createdAt      DateTime @default(now()) @map("created_at")
+  team           Team     @relation(fields: [teamId], references: [id])
+  user           User     @relation(fields: [userId], references: [id])
+  @@map("queries")
+}
+
+model PRReview {
+  id            String   @id @default(cuid())
+  teamId        String   @map("team_id")
+  repoName      String   @map("repo_name")
+  prNumber      Int      @map("pr_number")
+  prUrl         String   @map("pr_url")
+  prTitle       String   @map("pr_title")
+  reviewSummary String   @map("review_summary")
+  issuesJson    Json     @map("issues_json")
+  status        String   @default("completed")
+  createdAt     DateTime @default(now()) @map("created_at")
+  team          Team     @relation(fields: [teamId], references: [id])
+  @@map("pr_reviews")
+}
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  teamId             String    @unique @map("team_id")
+  plan               String    @default("free")
+  status             String    @default("active")
+  currentPeriodEnd   DateTime? @map("current_period_end")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  team               Team      @relation(fields: [teamId], references: [id])
+  @@map("subscriptions")
+}
+
+3. Run Database Migrations
+After creating the schema, GitHub Copilot must run these commands:
+cd backend
+npx prisma migrate dev --name init
+npx prisma generate
+
+What this does:
+'migrate dev' creates the database tables in PostgreSQL based on schema.prisma
+'generate' creates TypeScript types for all models — gives you type-safe database queries
+
+4. ChromaDB — Vector Database for AI Embeddings
+4.1 How ChromaDB Is Used
+ChromaDB stores the AI embeddings (vectors) generated from GitHub code, PRs, and commits. It enables semantic search — finding code that is SIMILAR IN MEANING to a question, not just keyword matches.
+
+Concept
+Explanation
+MirrorMind Usage
+Collection
+Like a table in SQL — a named group of vectors
+Each team gets one collection named 'team_{teamId}'
+Embedding
+A list of 384 numbers that represents the 'meaning' of a text
+Each code chunk becomes one embedding
+Document
+The original text that was converted to an embedding
+The actual PR text, commit message, or code snippet
+Metadata
+Extra info stored alongside each vector
+source_type, source_url, author, date, repo_name
+Query
+Search for vectors most similar to a given vector
+Find the 20 most relevant code chunks for a developer's question
+
+4.2 ChromaDB Setup in Python AI Service
+Create: ai-service/app/services/vectorStore.py
+import chromadb
+from chromadb.config import Settings
+
+# Connect to ChromaDB running in Docker
+client = chromadb.HttpClient(
+    host='localhost',
+    port=8001  # Note: mapped to 8001 in docker-compose
+)
+
+def get_team_collection(team_id: str):
+    # Each team has completely isolated storage
+    return client.get_or_create_collection(
+        name=f'team_{team_id}',
+        metadata={'hnsw:space': 'cosine'}
+    )
+
+def add_chunks(team_id: str, chunks: list):
+    collection = get_team_collection(team_id)
+    collection.add(
+        ids=[c['id'] for c in chunks],
+        embeddings=[c['embedding'] for c in chunks],
+        documents=[c['content'] for c in chunks],
+        metadatas=[c['metadata'] for c in chunks]
+    )
+
+def search_similar(team_id: str, query_embedding: list, n_results: int = 20):
+    collection = get_team_collection(team_id)
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=n_results,
+        include=['documents', 'metadatas', 'distances']
+    )
+    return results
+
+5. Redis — Cache and Job Queue
+5.1 Redis Usage in MirrorMind
+Usage
+Redis Key Pattern
+TTL (Expiry)
+BullMQ job queue storage
+bull:ingestion:*, bull:pr-review:*
+No expiry (BullMQ manages)
+Cache frequently asked questions
+cache:query:{teamId}:{questionHash}
+1 hour
+Cache team info
+cache:team:{teamId}
+5 minutes
+Rate limiting counters
+ratelimit:{userId}:{route}
+60 seconds
+Ingestion job progress
+progress:ingestion:{jobId}
+24 hours
+
+5.2 Query Caching Strategy
+To save Groq API calls (free tier has limits), cache AI answers in Redis:
+Before calling Groq: check Redis for cached answer using hash of (question + teamId)
+If cache hit: return cached answer immediately (no Groq API call needed)
+If cache miss: call Groq, generate answer, store in Redis with 1-hour TTL
+Expected savings: 30-40% of Groq API calls are repeated questions
+
+6. Data Isolation — Security Between Teams
+CRITICAL SECURITY REQUIREMENT: No team must ever see another team's data. This is enforced at the database level.
+
+Database
+Isolation Method
+How It Works
+PostgreSQL
+Row-level team_id filter
+Every query MUST include WHERE team_id = ? Prisma middleware enforces this automatically.
+ChromaDB
+Separate collections per team
+Each team's vectors are in 'team_{teamId}' collection. Cross-collection search is not possible.
+Redis
+Namespaced keys with teamId
+All Redis keys include team_id. One team cannot read another team's cached data.
+
+Add this Prisma middleware to enforce team isolation automatically:
+// In backend/src/app.ts — add to Prisma client setup
+prisma.$use(async (params, next) => {
+  // Automatically add team_id filter to all queries
+  const tablesWithTeamId = ['Query', 'GithubConnection', 'PRReview']
+  if (tablesWithTeamId.includes(params.model) && params.action === 'findMany') {
+    params.args.where = { ...params.args.where, teamId: getCurrentTeamId() }
+  }
+  return next(params)
+})
+
+7. Seed Data — For Testing During Development
+GitHub Copilot must create: backend/prisma/seed.ts
+This file creates test data so you can develop without setting up a real GitHub connection:
+1 test team: 'Acme Engineering' with slug 'acme'
+3 test users: admin@acme.com (admin), dev1@acme.com (developer), dev2@acme.com (developer)
+1 test GitHub connection: github.com/acme/main-app (status: completed)
+5 test queries with answers and mock source citations
+3 test PR reviews with mock issues
+
+Run seed: npx prisma db seed
+
+8. GitHub Copilot Prompt — Database Build
+Copy this prompt and give it to GitHub Copilot along with this document.
+
+Set up the complete MirrorMind database layer.
+
+1. Create docker-compose.yml in the mirrormind root with PostgreSQL 15,
+   Redis 7, and ChromaDB as services.
+
+2. Create the Prisma schema at backend/prisma/schema.prisma with all
+   tables: User, Team, TeamMember, GithubConnection, IngestionJob,
+   Query, PRReview, Subscription — exactly as specified in this document.
+
+3. Run: npx prisma migrate dev --name init
+   Run: npx prisma generate
+
+4. Create backend/prisma/seed.ts with test data.
+
+5. Create ai-service/app/services/vectorStore.py with ChromaDB
+   integration using per-team isolated collections.
+
+6. Implement Redis caching for AI query responses in the backend.

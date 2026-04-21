@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  githubId    String       @unique @map("github_id")
+  avatarUrl   String?      @map("avatar_url")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  memberships TeamMember[]
+  queries     Query[]
+
+  @@map("users")
+}
+
+model Team {
+  id           String            @id @default(cuid())
+  name         String
+  slug         String            @unique
+  plan         String            @default("free")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  members      TeamMember[]
+  connections  GithubConnection[]
+  queries      Query[]
+  prReviews    PRReview[]
+  subscription Subscription?
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  role     String   @default("developer")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  userId   String   @map("user_id")
+  teamId   String   @map("team_id")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@map("team_members")
+}
+
+model GithubConnection {
+  id             String         @id @default(cuid())
+  teamId         String         @map("team_id")
+  repoUrl        String         @map("repo_url")
+  repoName       String         @map("repo_name")
+  status         String         @default("pending")
+  lastIngestedAt DateTime?      @map("last_ingested_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  team           Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  ingestionJobs  IngestionJob[]
+
+  @@map("github_connections")
+}
+
+model IngestionJob {
+  id             String           @id @default(cuid())
+  teamId         String           @map("team_id")
+  connectionId   String           @map("connection_id")
+  status         String           @default("pending")
+  itemsProcessed Int              @default(0) @map("items_processed")
+  totalItems     Int?             @map("total_items")
+  errorMessage   String?          @map("error_message")
+  startedAt      DateTime?        @map("started_at")
+  completedAt    DateTime?        @map("completed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  connection     GithubConnection @relation(fields: [connectionId], references: [id])
+
+  @@map("ingestion_jobs")
+}
+
+model Query {
+  id             String   @id @default(cuid())
+  teamId         String   @map("team_id")
+  userId         String   @map("user_id")
+  conversationId String   @map("conversation_id")
+  question       String
+  answer         String
+  sourcesJson    Json?    @map("sources_json")
+  rating         Int?
+  createdAt      DateTime @default(now()) @map("created_at")
+  team           Team     @relation(fields: [teamId], references: [id])
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@map("queries")
+}
+
+model PRReview {
+  id            String   @id @default(cuid())
+  teamId        String   @map("team_id")
+  repoName      String   @map("repo_name")
+  prNumber      Int      @map("pr_number")
+  prUrl         String   @map("pr_url")
+  prTitle       String   @map("pr_title")
+  reviewSummary String   @map("review_summary")
+  issuesJson    Json     @map("issues_json")
+  status        String   @default("completed")
+  createdAt     DateTime @default(now()) @map("created_at")
+  team          Team     @relation(fields: [teamId], references: [id])
+
+  @@map("pr_reviews")
+}
+
+model Subscription {
+  id               String    @id @default(cuid())
+  teamId           String    @unique @map("team_id")
+  plan             String    @default("free")
+  status           String    @default("active")
+  currentPeriodEnd DateTime? @map("current_period_end")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  team             Team      @relation(fields: [teamId], references: [id])
+
+  @@map("subscriptions")
+}

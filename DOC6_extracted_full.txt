@@ -1,0 +1,332 @@
+MirrorMind
+DOC 6: Integration, Testing & Deployment
+Connecting All Services + Local Testing + Free Deployment on Vercel + Railway
+
+1. How All Services Connect — Integration Map
+This is the final step. Before using this document, all 5 previous documents must be fully implemented and working individually.
+
+Service
+Runs On
+Connects To
+How
+Next.js Frontend
+http://localhost:3000
+Node.js Backend
+HTTP REST API + SSE (axios + EventSource)
+Next.js Frontend
+http://localhost:3000
+GitHub OAuth
+next-auth redirect flow via GitHub
+Node.js Backend
+http://localhost:4000
+PostgreSQL
+Prisma ORM on port 5432
+Node.js Backend
+http://localhost:4000
+Redis
+ioredis + BullMQ on port 6379
+Node.js Backend
+http://localhost:4000
+Python AI Service
+HTTP axios calls to port 8000
+Python AI Service
+http://localhost:8000
+ChromaDB
+chromadb client on port 8001
+Python AI Service
+http://localhost:8000
+Groq API
+groq SDK (HTTPS to api.groq.com)
+Python AI Service
+http://localhost:8000
+HuggingFace API
+httpx (HTTPS to api-inference.huggingface.co)
+Python AI Service
+http://localhost:8000
+GitHub API
+PyGithub (HTTPS to api.github.com)
+
+2. Running Everything Locally
+2.1 Start All Services — Step by Step
+Open 4 separate terminal windows. Run one command in each:
+
+Terminal 1 — Start Databases (PostgreSQL + Redis + ChromaDB):
+cd mirrormind
+docker-compose up -d
+# Verify running: docker ps
+
+Terminal 2 — Start Python AI Service:
+cd mirrormind/ai-service
+source venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+Terminal 3 — Start Node.js Backend:
+cd mirrormind/backend
+npm run dev
+# This starts Express on port 4000 with hot-reload
+
+Terminal 4 — Start Next.js Frontend:
+cd mirrormind/frontend
+npm run dev
+# Open http://localhost:3000 in browser
+
+2.2 Verify All Services Are Running
+Service
+Check URL
+Expected Response
+Frontend
+http://localhost:3000
+MirrorMind landing page loads in browser
+Backend API
+http://localhost:4000/health
+{ status: 'ok', timestamp: '...' }
+AI Service
+http://localhost:8000/health
+{ status: 'ok', chromadb: 'connected' }
+ChromaDB
+http://localhost:8001/api/v1/heartbeat
+{ nanosecond heartbeat: ... }
+PostgreSQL
+npx prisma studio (port 5555)
+Database browser opens in browser
+Redis
+redis-cli ping (in Docker)
+PONG
+
+3. End-to-End Integration Tests
+3.1 Test 1 — User Registration and Login
+Open http://localhost:3000 in browser
+Click 'Sign in with GitHub'
+GitHub login page opens → Authorize the app
+Redirected to /onboarding (first time) or /dashboard (returning user)
+Check PostgreSQL: SELECT * FROM users; — should show your user record
+
+3.2 Test 2 — Connect a GitHub Repository
+On onboarding page: enter a public GitHub repo URL (use your own test repo)
+Click 'Connect Repository'
+Dashboard shows: 'Indexing... 0% complete'
+Wait 2-5 minutes for a small repo to finish indexing
+Dashboard shows: 'Ready — 47 items indexed'
+Check ChromaDB: collection for your team should have documents
+
+3.3 Test 3 — Ask a Question (MirrorChat)
+Go to /dashboard/chat
+Type: 'What is this codebase about?' and press Ctrl+Enter
+AI response should stream in word by word
+Below answer: source citations panel shows links to GitHub
+Check PostgreSQL: SELECT * FROM queries; — should log the Q&A
+
+3.4 Test 4 — PR Auto Review
+Create a real pull request on the connected GitHub repo
+Wait 60-90 seconds
+Check the PR on GitHub — MirrorMind bot should have posted a review comment
+Check /dashboard/review — PR should appear in the list with review details
+
+4. Common Integration Problems and Fixes
+Problem
+Likely Cause
+Fix
+Frontend shows 'Cannot connect to API'
+Backend not running or wrong port in .env
+Check backend is on port 4000. Check NEXT_PUBLIC_API_URL in frontend/.env.local
+Login works but redirects to blank page
+NEXTAUTH_URL wrong or session not saving
+Ensure NEXTAUTH_URL=http://localhost:3000 in frontend/.env.local
+'AI service unavailable' error
+Python service not running or wrong port
+Check uvicorn is running on port 8000. Check AI_SERVICE_URL in backend/.env
+Ingestion stuck at 0%
+ChromaDB not running in Docker
+Run: docker-compose up -d. Check docker ps shows chroma container.
+Groq API error 429 (rate limit)
+Too many requests to free tier
+Redis caching should prevent this. Check Redis is running. Clear test data.
+HuggingFace API 503 error
+Model loading in cold start
+Wait 30 seconds and retry. Code already has local fallback — should auto-recover.
+GitHub webhook not firing
+ngrok not set up for local testing
+Use ngrok to expose localhost:4000. Set webhook URL to https://xxx.ngrok.io/api/webhooks/github
+Prisma migration error
+PostgreSQL not running
+Run: docker-compose up -d postgres. Wait 10 seconds. Then run migration again.
+
+5. GitHub Webhook Local Testing with ngrok
+For testing MirrorReview locally, you need to expose your backend to the internet so GitHub can send webhooks. Use ngrok (free).
+
+Step 1 — Install ngrok: Go to ngrok.com, sign up free, download ngrok.
+Step 2 — Start ngrok tunnel to backend port:
+ngrok http 4000
+# ngrok shows: Forwarding https://abc123.ngrok.io -> http://localhost:4000
+
+Step 3 — Set GitHub webhook URL:
+Go to your GitHub repo → Settings → Webhooks → Add webhook
+Payload URL: https://abc123.ngrok.io/api/webhooks/github
+Content type: application/json
+Secret: the value of GITHUB_WEBHOOK_SECRET in your .env file
+Which events: Select 'Pull requests' only
+
+Step 4 — Create a PR on the repo. Within 60 seconds, MirrorMind should post a review comment.
+
+6. Free Deployment for MVP Launch
+6.1 Deployment Plan — Zero Cost
+Service
+Deploy To
+Cost
+Why
+Next.js Frontend
+Vercel (free tier)
+FREE
+Vercel made Next.js — perfect integration, automatic deployments from GitHub
+Node.js Backend
+Railway (free tier)
+FREE — $5 credit/month
+Railway supports Node.js containers easily, free tier is enough for MVP
+Python AI Service
+Railway (separate service)
+FREE — shared with backend
+Deploy as a second Railway service in the same project
+PostgreSQL
+Railway (managed Postgres)
+FREE — 1GB included
+Railway provides managed PostgreSQL free with the project
+Redis
+Railway (managed Redis)
+FREE — 256MB included
+Railway provides managed Redis free with the project
+ChromaDB
+Railway (Docker service)
+FREE
+Deploy the chromadb/chroma Docker image on Railway
+
+6.2 Deploy Frontend to Vercel
+Push your code to GitHub repository
+Go to vercel.com — sign in with GitHub
+Click 'New Project' — import your mirrormind repository
+Set Root Directory to: frontend
+Add environment variables (from frontend/.env.local): NEXTAUTH_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, NEXT_PUBLIC_API_URL (set to your Railway backend URL)
+Click Deploy — Vercel builds and deploys automatically
+Your frontend is now live at: https://mirrormind.vercel.app (or custom domain)
+
+6.3 Deploy Backend + AI Service to Railway
+Go to railway.app — sign in with GitHub
+Click 'New Project' → 'Deploy from GitHub repo'
+Select mirrormind repository
+Railway auto-detects Node.js — set root to 'backend'
+Add a new service in same project for Python AI service — set root to 'ai-service'
+Add PostgreSQL plugin — Railway creates and connects it automatically
+Add Redis plugin — same process
+Add environment variables to each service (all keys from .env files)
+Set NEXTAUTH_URL in Vercel to your production URL
+
+6.4 Update GitHub OAuth App for Production
+Go to github.com → Settings → Developer Settings → OAuth Apps → Your MirrorMind app
+Update Homepage URL to: https://mirrormind.vercel.app
+Update Authorization callback URL to: https://mirrormind.vercel.app/api/auth/callback/github
+
+7. Post-Deployment Checklist
+After deploying, verify these work in production:
+Check
+How to Verify
+Pass Criteria
+Login works
+Visit production URL, click Sign in with GitHub
+Redirects to dashboard after auth
+Backend health
+Visit: https://your-railway-url/health
+Returns { status: 'ok' }
+AI service health
+Visit: https://your-ai-service-url/health
+Returns { status: 'ok', chromadb: 'connected' }
+Database connected
+Login creates user, check Railway PostgreSQL logs
+No database connection errors in logs
+Environment variables
+Try connecting a GitHub repo
+Ingestion starts without API key errors
+CORS configured
+Browser console shows no CORS errors
+Frontend can call backend API
+
+8. MVP Launch Checklist — Before Your First User
+Category
+Item
+Done?
+Security
+All API keys in environment variables, not in code
+[ ]
+Security
+.env files in .gitignore — never committed to GitHub
+[ ]
+Security
+HTTPS enforced on all production URLs
+[ ]
+Security
+GitHub webhook verified with HMAC signature
+[ ]
+Functionality
+Sign in with GitHub works end-to-end
+[ ]
+Functionality
+GitHub repo connection and ingestion completes
+[ ]
+Functionality
+MirrorChat returns accurate answers with citations
+[ ]
+Functionality
+MirrorReview posts comment on GitHub PR within 2 minutes
+[ ]
+Functionality
+Team invitation flow works
+[ ]
+Performance
+MirrorChat first response under 5 seconds
+[ ]
+Performance
+Dashboard loads under 3 seconds
+[ ]
+UX
+New user sees onboarding flow on first login
+[ ]
+UX
+Error messages are user-friendly (no raw error codes)
+[ ]
+
+9. GitHub Copilot Prompt — Integration Build
+Copy this prompt and give it to GitHub Copilot with this document.
+
+Integrate all MirrorMind services — frontend, backend, AI service, and databases.
+
+1. Create the final docker-compose.yml connecting all services with correct
+environment variables and service dependencies (health checks).
+
+2. Add CORS configuration to Express backend allowing frontend origin.
+
+3. Add health check endpoints to backend (/health) and AI service (/health).
+
+4. Create a root-level package.json with these scripts:
+- 'dev': starts all 3 Node services concurrently
+- 'db:up': docker-compose up -d
+- 'db:migrate': cd backend && npx prisma migrate dev
+- 'db:seed': cd backend && npx prisma db seed
+
+5. Create a README.md with complete setup instructions:
+prerequisites, environment variable setup, how to run locally,
+how to deploy to Vercel + Railway.
+
+6. Create Vercel configuration (vercel.json) for frontend deployment.
+
+7. Create Railway configuration (railway.toml) for backend + AI service.
+
+10. What to Build After MVP — Phase 2 Reminder
+Stop here for MVP. Do NOT build Phase 2 features yet. Get 5 real users first, collect feedback, then come back for Phase 2.
+
+When you are ready for Phase 2, request these documents:
+DOC 7: MirrorOnboard — Automated developer onboarding paths
+DOC 8: MirrorInsights — Knowledge analytics and bus-factor dashboard
+DOC 9: Slack + Jira + Notion Integrations
+DOC 10: VS Code Extension
+DOC 11: Mobile App (React Native)
+
+Phase 2 goal: 200 paying companies. Reach $100,000 MRR. Close first enterprise contract.
+

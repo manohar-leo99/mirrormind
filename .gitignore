@@ -1,0 +1,12 @@
+.env
+.env.*
+.logs/
+.runlogs/
+**/.env
+**/.env.*
+**/.venv/
+**/node_modules/
+**/__pycache__/
+**/.next/
+**/dist/
+*.log
