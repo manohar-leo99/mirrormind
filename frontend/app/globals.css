@@ -1,0 +1,85 @@
+@import "tw-animate-css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --card: #1e293b;
+    --card-foreground: #f1f5f9;
+    --popover: #1e293b;
+    --popover-foreground: #f1f5f9;
+    --primary: #2563eb;
+    --primary-foreground: #f1f5f9;
+    --secondary: #1e3a5f;
+    --secondary-foreground: #f1f5f9;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #1e3a5f;
+    --accent-foreground: #f1f5f9;
+    --destructive: #ef4444;
+    --destructive-foreground: #f1f5f9;
+    --border: #334155;
+    --input: #334155;
+    --ring: #2563eb;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --card: #1e293b;
+    --card-foreground: #f1f5f9;
+    --popover: #1e293b;
+    --popover-foreground: #f1f5f9;
+    --primary: #2563eb;
+    --primary-foreground: #f1f5f9;
+    --secondary: #1e3a5f;
+    --secondary-foreground: #f1f5f9;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #1e3a5f;
+    --accent-foreground: #f1f5f9;
+    --destructive: #ef4444;
+    --destructive-foreground: #f1f5f9;
+    --border: #334155;
+    --input: #334155;
+    --ring: #2563eb;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground;
+    font-size: 14px;
+  }
+
+  code,
+  pre {
+    font-family:
+      var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: linear-gradient(
+      160deg,
+      rgba(30, 41, 59, 0.9) 0%,
+      rgba(15, 23, 42, 0.95) 100%
+    );
+    backdrop-filter: blur(8px);
+  }
+
+  .grid-noise {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+}

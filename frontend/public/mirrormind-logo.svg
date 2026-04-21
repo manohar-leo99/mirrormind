@@ -1,0 +1,75 @@
+<svg width="768" height="768" viewBox="0 0 768 768" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MirrorMind logo">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="36%" r="72%">
+      <stop offset="0%" stop-color="#111C3A"/>
+      <stop offset="100%" stop-color="#0B1220"/>
+    </radialGradient>
+
+    <linearGradient id="topMGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C7CCD6"/>
+      <stop offset="100%" stop-color="#AEB6C8"/>
+    </linearGradient>
+
+    <linearGradient id="bottomMGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F7BFF"/>
+      <stop offset="100%" stop-color="#7B5CFF"/>
+    </linearGradient>
+
+    <linearGradient id="midLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4F7BFF" stop-opacity="0"/>
+      <stop offset="24%" stop-color="#4F7BFF" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#7B5CFF" stop-opacity="1"/>
+      <stop offset="76%" stop-color="#7B5CFF" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#7B5CFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="mGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#5F7EFF" flood-opacity="0.25"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#7B5CFF" flood-opacity="0.18"/>
+    </filter>
+
+    <filter id="lineGlow" x="-40%" y="-200%" width="180%" height="500%">
+      <feGaussianBlur stdDeviation="3.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="dotGlow" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="384" cy="384" r="364" fill="url(#bgGrad)"/>
+  <circle cx="384" cy="384" r="348" fill="none" stroke="#243463" stroke-width="2" opacity="0.85"/>
+
+  <g filter="url(#mGlow)">
+    <path
+      d="M228 374V258H252L384 333L516 258H540V374"
+      fill="none"
+      stroke="url(#topMGrad)"
+      stroke-width="52"
+      stroke-linecap="square"
+      stroke-linejoin="miter"
+    />
+
+    <path
+      d="M228 394V510H252L384 435L516 510H540V394"
+      fill="none"
+      stroke="url(#bottomMGrad)"
+      stroke-width="52"
+      stroke-linecap="square"
+      stroke-linejoin="miter"
+    />
+  </g>
+
+  <line x1="156" y1="384" x2="612" y2="384" stroke="url(#midLineGrad)" stroke-width="4" filter="url(#lineGlow)"/>
+
+  <circle cx="384" cy="384" r="8" fill="#E9EEFF" fill-opacity="0.85" filter="url(#dotGlow)"/>
+  <circle cx="384" cy="384" r="3" fill="#B7C4FF"/>
+</svg>

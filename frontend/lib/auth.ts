@@ -1,0 +1,83 @@
+import type { NextAuthOptions } from "next-auth";
+import GitHubProvider from "next-auth/providers/github";
+
+const backendBaseUrl =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+export const authOptions: NextAuthOptions = {
+  providers: [
+    GitHubProvider({
+      clientId: process.env.GITHUB_CLIENT_ID ?? "",
+      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
+    }),
+  ],
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/auth/signin",
+  },
+  callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "github") {
+        return true;
+      }
+
+      try {
+        const response = await fetch(`${backendBaseUrl}/api/auth/github/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            githubId: (profile as { id?: string | number } | undefined)?.id,
+            email: user.email,
+            name: user.name,
+            avatarUrl: user.image,
+          }),
+        });
+
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            userId?: string;
+            teamId?: string;
+            role?: "admin" | "developer" | "viewer";
+            isNewUser?: boolean;
+          };
+          user.id = payload.userId;
+          user.teamId = payload.teamId;
+          user.role = payload.role ?? "developer";
+          user.isNewUser = payload.isNewUser ?? false;
+        }
+      } catch {
+        user.role = "developer";
+      }
+
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (account?.access_token) {
+        token.accessToken = account.access_token;
+      }
+
+      if (user) {
+        token.userId = user.id ?? token.sub;
+        token.teamId = user.teamId;
+        token.role = user.role ?? "developer";
+        token.isNewUser = user.isNewUser ?? false;
+      }
+
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.userId;
+        session.user.teamId = token.teamId;
+        session.user.role = token.role;
+        session.user.isNewUser = token.isNewUser;
+      }
+      session.accessToken = token.accessToken;
+      return session;
+    },
+  },
+};

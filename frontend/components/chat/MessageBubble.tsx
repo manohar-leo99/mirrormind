@@ -1,0 +1,63 @@
+"use client";
+
+import ReactMarkdown from "react-markdown";
+
+import { CodeBlock } from "@/components/ui/CodeBlock";
+import type { ChatMessage } from "@/types/domain";
+
+type MessageBubbleProps = {
+  message: ChatMessage;
+};
+
+export function MessageBubble({ message }: MessageBubbleProps) {
+  const isUser = message.role === "user";
+
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[90%] rounded-lg border p-3 text-sm leading-relaxed shadow-sm md:max-w-[80%] ${
+          isUser
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-border bg-card text-foreground"
+        }`}
+      >
+        {isUser ? (
+          message.content
+        ) : (
+          <>
+            <ReactMarkdown
+              components={{
+                code(props) {
+                  const { children, className } = props;
+                  const match = /language-(\w+)/.exec(className ?? "");
+                  const value = String(children).replace(/\n$/, "");
+                  const inline = !(className && className.includes("language-"));
+
+                  if (inline) {
+                    return (
+                      <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                        {children}
+                      </code>
+                    );
+                  }
+
+                  return (
+                    <CodeBlock code={value} language={match?.[1] ?? "text"} />
+                  );
+                },
+                p({ children }) {
+                  return <p className="mb-2 last:mb-0">{children}</p>;
+                },
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+            {message.isStreaming ? (
+              <span className="ml-0.5 animate-pulse text-primary">▍</span>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
