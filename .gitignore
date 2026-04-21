@@ -1,9 +1,11 @@
 .env
 .env.*
+!.env.example
 .logs/
 .runlogs/
 **/.env
 **/.env.*
+!**/.env.example
 **/.venv/
 **/node_modules/
 **/__pycache__/
