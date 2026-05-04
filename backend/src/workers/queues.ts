@@ -58,7 +58,9 @@ export type PRReviewJobPayload = {
   diffUrl?: string;
 };
 
-const producerConnection = hasRedisConfiguration ? createRedisConnection() : null;
+const producerConnection = hasRedisConfiguration
+  ? createRedisConnection()
+  : null;
 
 const realIngestionQueue = hasRedisConfiguration
   ? new Queue<IngestionJobPayload>("ingestion", {
@@ -73,7 +75,8 @@ const realPrReviewQueue = hasRedisConfiguration
   : null;
 
 export const ingestionQueue: QueueLike<IngestionJobPayload> =
-  realIngestionQueue ?? createMissingRedisQueue<IngestionJobPayload>("ingestion");
+  realIngestionQueue ??
+  createMissingRedisQueue<IngestionJobPayload>("ingestion");
 
 export const prReviewQueue: QueueLike<PRReviewJobPayload> =
   realPrReviewQueue ?? createMissingRedisQueue<PRReviewJobPayload>("pr-review");

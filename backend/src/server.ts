@@ -32,7 +32,9 @@ async function startServer() {
       ingestionWorker.close(),
       prReviewWorker.close(),
       closeQueueConnections(),
-        process.env.DATABASE_URL?.trim() ? prisma.$disconnect() : Promise.resolve(),
+      process.env.DATABASE_URL?.trim()
+        ? prisma.$disconnect()
+        : Promise.resolve(),
     ]);
 
     server.close(() => {

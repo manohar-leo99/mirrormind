@@ -2,7 +2,9 @@ import type { NextAuthOptions } from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
 
 const backendBaseUrl =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  process.env.BACKEND_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:4000";
 
 export const authOptions: NextAuthOptions = {
   providers: [
