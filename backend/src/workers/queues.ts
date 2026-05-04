@@ -1,16 +1,38 @@
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
-const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+type QueueLike<T> = {
+  add(name: string, data: T, opts?: Record<string, unknown>): Promise<unknown>;
+  close(): Promise<void>;
+};
+
+const redisUrl = process.env.REDIS_URL?.trim();
+
+export const hasRedisConfiguration = Boolean(redisUrl);
 
 export function createRedisConnection() {
+  if (!redisUrl) {
+    throw new Error("REDIS_URL is not configured.");
+  }
+
   return new IORedis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
   });
 }
 
-const producerConnection = createRedisConnection();
+function createMissingRedisQueue<T>(queueName: string): QueueLike<T> {
+  return {
+    async add() {
+      throw new Error(
+        `${queueName} queue is unavailable because REDIS_URL is not configured.`,
+      );
+    },
+    async close() {
+      return;
+    },
+  };
+}
 
 export type IngestionJobPayload = {
   teamId: string;
@@ -36,15 +58,31 @@ export type PRReviewJobPayload = {
   diffUrl?: string;
 };
 
-export const ingestionQueue = new Queue<IngestionJobPayload>("ingestion", {
-  connection: producerConnection,
-});
+const producerConnection = hasRedisConfiguration ? createRedisConnection() : null;
 
-export const prReviewQueue = new Queue<PRReviewJobPayload>("pr-review", {
-  connection: producerConnection,
-});
+const realIngestionQueue = hasRedisConfiguration
+  ? new Queue<IngestionJobPayload>("ingestion", {
+      connection: producerConnection as IORedis,
+    })
+  : null;
+
+const realPrReviewQueue = hasRedisConfiguration
+  ? new Queue<PRReviewJobPayload>("pr-review", {
+      connection: producerConnection as IORedis,
+    })
+  : null;
+
+export const ingestionQueue: QueueLike<IngestionJobPayload> =
+  realIngestionQueue ?? createMissingRedisQueue<IngestionJobPayload>("ingestion");
+
+export const prReviewQueue: QueueLike<PRReviewJobPayload> =
+  realPrReviewQueue ?? createMissingRedisQueue<PRReviewJobPayload>("pr-review");
 
 export async function closeQueueConnections() {
-  await Promise.all([ingestionQueue.close(), prReviewQueue.close()]);
+  if (!producerConnection || !realIngestionQueue || !realPrReviewQueue) {
+    return;
+  }
+
+  await Promise.all([realIngestionQueue.close(), realPrReviewQueue.close()]);
   await producerConnection.quit();
 }

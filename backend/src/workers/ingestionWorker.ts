@@ -5,7 +5,15 @@ import {
   getIngestionStatus,
   startIngestion,
 } from "../services/aiServiceClient";
-import { createRedisConnection, type IngestionJobPayload } from "./queues";
+import {
+  createRedisConnection,
+  hasRedisConfiguration,
+  type IngestionJobPayload,
+} from "./queues";
+
+type WorkerHandle = {
+  close(): Promise<void>;
+};
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -33,7 +41,19 @@ function toConnectionStatus(status: string): string {
   return "pending";
 }
 
-export function startIngestionWorker() {
+export function startIngestionWorker(): WorkerHandle {
+  if (!hasRedisConfiguration) {
+    console.warn(
+      "[ingestion-worker] REDIS_URL is not configured; worker disabled.",
+    );
+
+    return {
+      async close() {
+        return;
+      },
+    };
+  }
+
   const worker = new Worker<IngestionJobPayload>(
     "ingestion",
     async (job) => {

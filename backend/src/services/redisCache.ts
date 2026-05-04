@@ -7,14 +7,20 @@ type CachedQueryPayload = {
   sources: unknown[];
 };
 
-const redis = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-});
+const redisUrl = process.env.REDIS_URL?.trim();
 
-redis.on("error", (error) => {
-  console.warn("[redis] cache error", error.message);
-});
+const redis = redisUrl
+  ? new IORedis(redisUrl, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+    })
+  : null;
+
+if (redis) {
+  redis.on("error", (error) => {
+    console.warn("[redis] cache error", error.message);
+  });
+}
 
 function buildQuestionHash(question: string): string {
   return crypto
@@ -31,6 +37,10 @@ export async function getCachedQueryAnswer(
   teamId: string,
   question: string,
 ): Promise<CachedQueryPayload | null> {
+  if (!redis) {
+    return null;
+  }
+
   try {
     const key = getQueryCacheKey(teamId, question);
     const value = await redis.get(key);
@@ -55,6 +65,10 @@ export async function setCachedQueryAnswer(payload: {
   sources: unknown[];
   ttlSeconds?: number;
 }): Promise<void> {
+  if (!redis) {
+    return;
+  }
+
   const ttlSeconds = payload.ttlSeconds ?? 3600;
   try {
     const key = getQueryCacheKey(payload.teamId, payload.question);

@@ -14,7 +14,11 @@ const prReviewWorker = startPRReviewWorker();
 const scheduledSyncTask = startScheduledSyncWorker();
 
 async function startServer() {
-  await prisma.$connect();
+  if (!process.env.DATABASE_URL?.trim()) {
+    console.warn(
+      "[backend] DATABASE_URL is not configured; starting without database connectivity.",
+    );
+  }
 
   const server = app.listen(port, () => {
     console.info(`[backend] MirrorMind API listening on port ${port}`);
@@ -28,7 +32,7 @@ async function startServer() {
       ingestionWorker.close(),
       prReviewWorker.close(),
       closeQueueConnections(),
-      prisma.$disconnect(),
+        process.env.DATABASE_URL?.trim() ? prisma.$disconnect() : Promise.resolve(),
     ]);
 
     server.close(() => {

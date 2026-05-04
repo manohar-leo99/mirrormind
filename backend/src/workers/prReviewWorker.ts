@@ -6,7 +6,15 @@ import {
   fetchDiffFromUrl,
   postPullRequestComment,
 } from "../services/githubService";
-import { createRedisConnection, type PRReviewJobPayload } from "./queues";
+import {
+  createRedisConnection,
+  hasRedisConfiguration,
+  type PRReviewJobPayload,
+} from "./queues";
+
+type WorkerHandle = {
+  close(): Promise<void>;
+};
 
 function buildGitHubComment(
   summary: string,
@@ -40,7 +48,19 @@ function normalizeSeverity(value: string): "info" | "warning" | "error" {
   return "info";
 }
 
-export function startPRReviewWorker() {
+export function startPRReviewWorker(): WorkerHandle {
+  if (!hasRedisConfiguration) {
+    console.warn(
+      "[pr-review-worker] REDIS_URL is not configured; worker disabled.",
+    );
+
+    return {
+      async close() {
+        return;
+      },
+    };
+  }
+
   const worker = new Worker<PRReviewJobPayload>(
     "pr-review",
     async (job) => {
