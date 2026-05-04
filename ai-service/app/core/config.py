@@ -18,6 +18,8 @@ class Settings:
     ingestion_max_commits: int
     ingestion_max_pull_requests: int
     ingestion_max_review_comments: int
+    ingestion_max_code_files: int
+    ingestion_max_file_bytes: int
 
 
 _cached_settings: Settings | None = None
@@ -48,6 +50,12 @@ def get_settings() -> Settings:
             ),
             ingestion_max_review_comments=int(
                 os.getenv("INGESTION_MAX_REVIEW_COMMENTS", "20")
+            ),
+            ingestion_max_code_files=int(
+                os.getenv("INGESTION_MAX_CODE_FILES", "80")
+            ),
+            ingestion_max_file_bytes=int(
+                os.getenv("INGESTION_MAX_FILE_BYTES", "50000")
             ),
         )
     return _cached_settings

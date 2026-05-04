@@ -11,6 +11,7 @@ export async function startIngestion(payload: {
   repoUrl: string;
   teamId: string;
   githubToken: string;
+  isFullSync: boolean;
 }): Promise<{ jobId: string }> {
   try {
     const { data } = await aiService.post<{ jobId: string }>(
@@ -23,6 +24,21 @@ export async function startIngestion(payload: {
       503,
       "Service Unavailable",
       "AI service is not responding. Try again.",
+    );
+  }
+}
+
+export async function deleteRepoIngestionData(payload: {
+  teamId: string;
+  repoName: string;
+}): Promise<void> {
+  try {
+    await aiService.post("/ingest/delete-repo", payload);
+  } catch {
+    throw new ApiError(
+      503,
+      "Service Unavailable",
+      "AI service cleanup failed. Try again.",
     );
   }
 }

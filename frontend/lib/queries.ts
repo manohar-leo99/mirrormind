@@ -13,6 +13,7 @@ import {
   getTeamMembers,
   inviteTeamMember,
   removeTeamMember,
+  syncRepo,
   triggerPRReview,
   updateTeamMemberRole,
 } from "@/lib/api";
@@ -86,7 +87,23 @@ export function useDisconnectRepoMutation() {
   return useMutation({
     mutationFn: disconnectRepo,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["repos"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repos"] }),
+        queryClient.invalidateQueries({ queryKey: ["ingestion-status"] }),
+      ]);
+    },
+  });
+}
+
+export function useSyncRepoMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: syncRepo,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repos"] }),
+        queryClient.invalidateQueries({ queryKey: ["ingestion-status"] }),
+      ]);
     },
   });
 }

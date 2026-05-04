@@ -15,9 +15,43 @@ import { generalRateLimiter } from "./middleware/rateLimiter";
 
 const app = express();
 
+function normalizeOrigin(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+function isAllowedOrigin(origin?: string): boolean {
+  if (!origin) {
+    return true;
+  }
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  const configured = (process.env.FRONTEND_URL ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map(normalizeOrigin);
+
+  const defaults = ["http://localhost:3000", "https://localhost:3000"];
+  const allowList = new Set([...configured, ...defaults]);
+
+  if (allowList.has(normalizedOrigin)) {
+    return true;
+  }
+
+  // Keep dev tunnels working even when the quick-tunnel domain rotates.
+  return /\.trycloudflare\.com$/i.test(normalizedOrigin);
+}
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL ?? "http://localhost:3000",
+    origin(origin, callback) {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS origin not allowed: ${origin ?? "unknown"}`));
+    },
     credentials: true,
   }),
 );

@@ -54,8 +54,15 @@ async def query(payload: QueryRequest):
             async for event in query_rag(payload.question, payload.team_id):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as exc:
+            fallback_message = (
+                "I ran into a temporary issue while retrieving team context. "
+                "Here is a general best-effort answer based on standard engineering practices. "
+                "Please re-run after ingestion sync to get repository-grounded details."
+            )
+            token_event = {"type": "token", "content": fallback_message}
             error_event = {"type": "error", "error": str(exc)}
             done_event = {"type": "done", "sources": []}
+            yield f"data: {json.dumps(token_event)}\n\n"
             yield f"data: {json.dumps(error_event)}\n\n"
             yield f"data: {json.dumps(done_event)}\n\n"
 

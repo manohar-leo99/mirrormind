@@ -31,3 +31,14 @@ class IngestStatusResponse(BaseModel):
 class TeamDeleteResponse(BaseModel):
     success: bool
     team_id: str = Field(alias="teamId")
+
+
+class RepoDeleteRequest(BaseModel):
+    team_id: str = Field(alias="teamId")
+    repo_name: str = Field(alias="repoName")
+
+
+class RepoDeleteResponse(BaseModel):
+    success: bool
+    team_id: str = Field(alias="teamId")
+    repo_name: str = Field(alias="repoName")

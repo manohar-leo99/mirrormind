@@ -91,6 +91,7 @@ def _build_context(context_chunks: list[dict[str, Any]]) -> str:
         sections.append(
             "\n".join(
                 [
+                    f"Source ID: {metadata.get('source_id', '')}",
                     f"Source: {metadata.get('source_url', '')}",
                     f"Type: {metadata.get('source_type', '')}",
                     chunk.get("document", ""),
@@ -105,16 +106,36 @@ async def generate_answer_stream(
     context_chunks: list[dict[str, Any]],
 ) -> AsyncGenerator[str, None]:
     context = _build_context(context_chunks)
+    has_repo_context = len(context_chunks) > 0
+
+    context_instruction = (
+        "Ground your answer in the supplied repository context and cite Source IDs explicitly."
+        if has_repo_context
+        else "No repository context is available. Provide a best-effort general engineering answer, clearly label it as general guidance, and avoid claiming repo-specific behavior."
+    )
 
     system_prompt = (
-        "You are MirrorMind, an AI assistant with deep knowledge of this engineering team's "
-        "codebase. Answer questions using only the provided context from the team's code, "
-        "PRs, and discussions. Always cite sources. If context is insufficient, say so clearly."
+        "You are MirrorMind, the team's technical second brain. "
+        "Answer every developer question with clear, practical guidance. "
+        "Prefer concrete wording over vague statements. "
+        "Never output only 'I don't know' or a refusal when a safe best-effort answer is possible. "
+        "When context is partial, state what is uncertain and continue with the most useful guidance."
     )
     user_prompt = (
         f"Context from team codebase:\n{context}\n\n"
         f"Developer question: {question}\n\n"
-        "Provide a concise, accurate answer with practical guidance."
+        f"Context rule: {context_instruction}\n\n"
+        "Respond in Markdown with this exact section order:\n"
+        "## Direct Answer\n"
+        "- 2 to 5 concise sentences that directly answer the question.\n"
+        "## Why\n"
+        "- 3 to 6 short bullets with key reasoning.\n"
+        "## Action Plan\n"
+        "- Numbered steps the developer can run now.\n"
+        "## Sources\n"
+        "- If Source IDs exist, list them as bullets. If none exist, write 'No repository sources were available for this answer.'\n"
+        "## Uncertainty\n"
+        "- Briefly state what may be incomplete and what to verify next."
     )
 
     queue: asyncio.Queue[object] = asyncio.Queue()

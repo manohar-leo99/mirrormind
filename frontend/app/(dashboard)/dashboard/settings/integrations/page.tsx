@@ -12,6 +12,7 @@ import {
   useDisconnectRepoMutation,
   useIngestionStatusQuery,
   useReposQuery,
+  useSyncRepoMutation,
 } from "@/lib/queries";
 
 export default function IntegrationsPage() {
@@ -20,6 +21,7 @@ export default function IntegrationsPage() {
   const { data: ingestion = [] } = useIngestionStatusQuery();
   const connectMutation = useConnectRepoMutation();
   const disconnectMutation = useDisconnectRepoMutation();
+  const syncMutation = useSyncRepoMutation();
   const [repoUrl, setRepoUrl] = useState("");
 
   const onConnect = async () => {
@@ -50,6 +52,22 @@ export default function IntegrationsPage() {
     } catch (error) {
       toast({
         title: "Failed to disconnect repository",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onSync = async (repoId: string) => {
+    try {
+      await syncMutation.mutateAsync(repoId);
+      toast({
+        title: "Sync queued",
+        description: "Repository sync job started in background.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to start sync",
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
@@ -99,7 +117,12 @@ export default function IntegrationsPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void onSync(repo.id)}
+                      disabled={syncMutation.isPending}
+                    >
                       Sync Now
                     </Button>
                     <Button

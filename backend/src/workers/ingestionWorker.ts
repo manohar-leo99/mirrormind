@@ -58,6 +58,7 @@ export function startIngestionWorker() {
           repoUrl: job.data.repoUrl,
           teamId: job.data.teamId,
           githubToken: job.data.githubToken,
+          isFullSync: job.data.isFullSync,
         });
 
         let isFinished = false;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { getSession } from "next-auth/react";
 
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -25,6 +26,7 @@ function normalizeConversation(data: Conversation): Conversation {
 
 export function ChatInterface() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: rawConversations = [], isLoading } = useConversationsQuery();
   const [activeConversationId, setActiveConversationId] = useState<
     string | undefined
@@ -101,9 +103,10 @@ export function ChatInterface() {
 
           try {
             const parsed = JSON.parse(payload) as {
-              type: "token" | "done";
+              type: "token" | "done" | "error";
               content?: string;
               sources?: Citation[];
+              error?: string;
             };
 
             if (parsed.type === "token" && parsed.content) {
@@ -130,6 +133,32 @@ export function ChatInterface() {
             if (parsed.type === "done") {
               receivedSources = parsed.sources ?? [];
             }
+
+            if (parsed.type === "error") {
+              setMessages((current) => {
+                const lastIndex = current.length - 1;
+                if (lastIndex < 0) {
+                  return current;
+                }
+
+                const last = current[lastIndex];
+                if (last?.role !== "assistant") {
+                  return current;
+                }
+
+                if (last.content.trim().length > 0) {
+                  return current;
+                }
+
+                const updatedLast: ChatMessage = {
+                  ...last,
+                  content:
+                    "MirrorMind had trouble retrieving context. Here is a general best-effort answer. Re-sync ingestion for repo-specific details.",
+                };
+
+                return [...current.slice(0, lastIndex), updatedLast];
+              });
+            }
           } catch {
             continue;
           }
@@ -150,6 +179,10 @@ export function ChatInterface() {
 
       const updatedLast: ChatMessage = {
         ...last,
+        content:
+          last.content.trim().length > 0
+            ? last.content
+            : "MirrorMind could not produce a complete response this time. Please try again.",
         isStreaming: false,
         citations: receivedSources,
       };
@@ -160,6 +193,11 @@ export function ChatInterface() {
   };
 
   const onSend = async (content: string) => {
+    const conversationId = activeConversationId ?? crypto.randomUUID();
+    if (!activeConversationId) {
+      setActiveConversationId(conversationId);
+    }
+
     const timestamp = new Date().toISOString();
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -180,11 +218,8 @@ export function ChatInterface() {
     setIsStreaming(true);
 
     try {
-      await streamQuestion(content, activeConversationId ?? null);
-
-      if (!activeConversationId) {
-        setActiveConversationId(crypto.randomUUID());
-      }
+      await streamQuestion(content, conversationId);
+      await queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch (error) {
       setMessages((current) =>
         current.map((item) =>

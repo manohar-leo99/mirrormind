@@ -111,6 +111,11 @@ export async function disconnectRepo(repoId: string) {
   return data;
 }
 
+export async function syncRepo(repoId: string) {
+  const { data } = await api.post(`/api/ingestion/sync/${repoId}`);
+  return data;
+}
+
 export async function getBillingInfo() {
   const { data } = await api.get("/api/billing");
   return data;

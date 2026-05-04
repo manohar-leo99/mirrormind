@@ -4,7 +4,13 @@ import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from app.models.ingest import IngestRequest, IngestStartResponse, TeamDeleteResponse
+from app.models.ingest import (
+    IngestRequest,
+    IngestStartResponse,
+    RepoDeleteRequest,
+    RepoDeleteResponse,
+    TeamDeleteResponse,
+)
 from app.services.chunker import chunk_text
 from app.services.embeddingService import get_embeddings_batch
 from app.services.githubIngestion import build_ingestion_documents, fetch_github_data
@@ -106,3 +112,13 @@ async def get_ingest_status(job_id: str):
 async def delete_team_ingestion(team_id: str):
     await asyncio.to_thread(delete_team_data, team_id)
     return TeamDeleteResponse(success=True, teamId=team_id)
+
+
+@router.post("/ingest/delete-repo", response_model=RepoDeleteResponse)
+async def delete_repo_ingestion(payload: RepoDeleteRequest):
+    await asyncio.to_thread(delete_repo_chunks, payload.team_id, payload.repo_name)
+    return RepoDeleteResponse(
+        success=True,
+        teamId=payload.team_id,
+        repoName=payload.repo_name,
+    )

@@ -7,6 +7,7 @@ import { authMiddleware } from "../middleware/auth";
 import { requireRole } from "../middleware/requireRole";
 import { validateBody } from "../middleware/validation";
 import { prisma } from "../prisma/client";
+import { deleteRepoIngestionData } from "../services/aiServiceClient";
 import { parseRepoUrl } from "../services/githubService";
 import { ingestionQueue } from "../workers/queues";
 
@@ -206,7 +207,22 @@ router.delete(
       where: { id: existing.id },
     });
 
-    res.json({ success: true });
+    let vectorCleanup = "ok";
+    try {
+      await deleteRepoIngestionData({
+        teamId,
+        repoName: existing.repoName,
+      });
+    } catch (error) {
+      vectorCleanup = "failed";
+      console.warn("[repos] Failed to cleanup vector data for removed repo", {
+        teamId,
+        repoName: existing.repoName,
+        error,
+      });
+    }
+
+    res.json({ success: true, vectorCleanup });
   }),
 );
 
