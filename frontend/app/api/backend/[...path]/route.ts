@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 
-const backendBaseUrl =
-  process.env.BACKEND_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:4000";
+import { getBackendBaseUrl } from "@/lib/backendUrl";
 
 export const runtime = "nodejs";
 
@@ -12,8 +9,25 @@ async function proxyRequest(
   context: { params: { path?: string[] } },
 ) {
   const pathSegments = context.params.path ?? [];
+  let backendBaseUrl: string;
+
+  try {
+    backendBaseUrl = getBackendBaseUrl();
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Backend URL is not configured.";
+
+    return new Response(JSON.stringify({ error: message }), {
+      status: 503,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+      },
+    });
+  }
+
   const targetUrl = new URL(
-    `/api/${pathSegments.join("/")}${request.nextUrl.search}`,
+    `/${pathSegments.join("/")}${request.nextUrl.search}`,
     backendBaseUrl,
   );
 

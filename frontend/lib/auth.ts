@@ -1,10 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
 
-const backendBaseUrl =
-  process.env.BACKEND_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:4000";
+import { getBackendBaseUrl } from "@/lib/backendUrl";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -26,18 +23,21 @@ export const authOptions: NextAuthOptions = {
       }
 
       try {
-        const response = await fetch(`${backendBaseUrl}/api/auth/github/sync`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const response = await fetch(
+          `${getBackendBaseUrl()}/api/auth/github/sync`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              githubId: (profile as { id?: string | number } | undefined)?.id,
+              email: user.email,
+              name: user.name,
+              avatarUrl: user.image,
+            }),
           },
-          body: JSON.stringify({
-            githubId: (profile as { id?: string | number } | undefined)?.id,
-            email: user.email,
-            name: user.name,
-            avatarUrl: user.image,
-          }),
-        });
+        );
 
         if (response.ok) {
           const payload = (await response.json()) as {
@@ -45,11 +45,13 @@ export const authOptions: NextAuthOptions = {
             teamId?: string;
             role?: "admin" | "developer" | "viewer";
             isNewUser?: boolean;
+            accessToken?: string;
           };
           user.id = payload.userId;
           user.teamId = payload.teamId;
           user.role = payload.role ?? "developer";
           user.isNewUser = payload.isNewUser ?? false;
+          user.backendAccessToken = payload.accessToken;
         }
       } catch {
         user.role = "developer";
@@ -58,7 +60,9 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, account }) {
-      if (account?.access_token) {
+      if (user?.backendAccessToken) {
+        token.accessToken = user.backendAccessToken;
+      } else if (account?.access_token) {
         token.accessToken = account.access_token;
       }
 

@@ -16,6 +16,7 @@ declare module "next-auth" {
     teamId?: string;
     role?: "admin" | "developer" | "viewer";
     isNewUser?: boolean;
+    backendAccessToken?: string;
   }
 }
 

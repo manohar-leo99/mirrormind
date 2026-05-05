@@ -10,8 +10,7 @@ import type {
   Conversation,
 } from "@/types/domain";
 
-export const API_BASE_URL =
-  "/api/backend";
+export const API_BASE_URL = "/api/backend";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

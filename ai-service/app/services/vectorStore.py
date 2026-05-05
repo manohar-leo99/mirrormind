@@ -15,6 +15,10 @@ def _get_client() -> chromadb.ClientAPI:
     global _client
     if _client is None:
         settings = get_settings()
+        if settings.chroma_host in {"localhost", "127.0.0.1"}:
+            _client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
+            return _client
+
         try:
             remote_client = chromadb.HttpClient(
                 host=settings.chroma_host,
@@ -23,8 +27,10 @@ def _get_client() -> chromadb.ClientAPI:
             remote_client.heartbeat()
             _client = remote_client
         except Exception:
-            # Local fallback keeps ingestion/query functional in dev if remote Chroma is down.
-            _client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
+            raise ServiceError(
+                "Unable to connect to the configured ChromaDB service.",
+                status_code=503,
+            )
     return _client
 
 
