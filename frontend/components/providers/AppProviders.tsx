@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SessionProvider, type Session } from "next-auth/react";
+import { SessionProvider } from "next-auth/react";
+import type { Session } from "next-auth";
 
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";

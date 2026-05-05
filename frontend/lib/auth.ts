@@ -72,7 +72,9 @@ export const authOptions: NextAuthOptions = {
       }
 
       token.accessToken =
-        token.githubAccessToken ?? token.backendAccessToken ?? token.accessToken;
+        token.githubAccessToken ??
+        token.backendAccessToken ??
+        token.accessToken;
 
       if (user) {
         token.userId = user.id ?? token.sub;
@@ -93,7 +95,9 @@ export const authOptions: NextAuthOptions = {
       session.backendAccessToken = token.backendAccessToken;
       session.githubAccessToken = token.githubAccessToken;
       session.accessToken =
-        token.githubAccessToken ?? token.backendAccessToken ?? token.accessToken;
+        token.githubAccessToken ??
+        token.backendAccessToken ??
+        token.accessToken;
       return session;
     },
   },
