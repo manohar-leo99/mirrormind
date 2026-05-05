@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getSession } from "next-auth/react";
 
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ConversationSidebar } from "@/components/chat/ConversationSidebar";
@@ -12,6 +11,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/lib/api";
+import { fetchClientSession } from "@/lib/session";
 import { useConversationsQuery } from "@/lib/queries";
 import type { ChatMessage, Citation, Conversation } from "@/types/domain";
 
@@ -23,11 +23,16 @@ type SessionTokens = {
 
 function getPrimaryToken(session: SessionTokens | null) {
   return (
-    session?.githubAccessToken ?? session?.accessToken ?? session?.backendAccessToken
+    session?.githubAccessToken ??
+    session?.accessToken ??
+    session?.backendAccessToken
   );
 }
 
-function getFallbackToken(session: SessionTokens | null, primaryToken?: string) {
+function getFallbackToken(
+  session: SessionTokens | null,
+  primaryToken?: string,
+) {
   if (!session || !primaryToken) {
     return undefined;
   }
@@ -85,25 +90,28 @@ export function ChatInterface() {
     question: string,
     conversationId: string | null,
   ) => {
-    const session = await getSession();
+    const session = await fetchClientSession();
     const primaryToken = getPrimaryToken(session as SessionTokens | null);
     const executeRequest = (token?: string) =>
       fetch(`${API_BASE_URL}/api/query`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        question,
-        conversationId,
-      }),
-    });
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          question,
+          conversationId,
+        }),
+      });
 
     let response = await executeRequest(primaryToken);
 
     if (response.status === 401) {
-      const fallbackToken = getFallbackToken(session as SessionTokens | null, primaryToken);
+      const fallbackToken = getFallbackToken(
+        session as SessionTokens | null,
+        primaryToken,
+      );
       if (fallbackToken && fallbackToken !== primaryToken) {
         response = await executeRequest(fallbackToken);
       }

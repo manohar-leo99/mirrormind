@@ -1,5 +1,4 @@
 import axios, { AxiosHeaders } from "axios";
-import { getSession } from "next-auth/react";
 
 import type {
   IngestionStatusItem,
@@ -9,6 +8,7 @@ import type {
   TeamMember,
   Conversation,
 } from "@/types/domain";
+import { fetchClientSession } from "@/lib/session";
 
 export const API_BASE_URL = "/api/backend";
 
@@ -63,7 +63,7 @@ api.interceptors.request.use(async (config) => {
     return config;
   }
 
-  const session = await getSession();
+  const session = await fetchClientSession();
   const retryConfig = config as typeof config & AuthRetryConfig;
   const token =
     retryConfig.authToken ??
@@ -94,7 +94,7 @@ api.interceptors.response.use(
       !config.authRetry &&
       typeof window !== "undefined"
     ) {
-      const session = await getSession();
+      const session = await fetchClientSession();
       const alternateToken = getAlternateToken(session);
 
       if (alternateToken) {
