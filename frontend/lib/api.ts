@@ -22,10 +22,7 @@ type AuthRetryConfig = {
   authRetry?: boolean;
 };
 
-function setAuthorizationHeader(
-  headers: unknown,
-  token: string,
-): void {
+function setAuthorizationHeader(headers: unknown, token: string): void {
   if (!headers) {
     return;
   }
@@ -38,20 +35,24 @@ function setAuthorizationHeader(
   (headers as Record<string, string>).Authorization = `Bearer ${token}`;
 }
 
-function getAlternateToken(session: {
-  backendAccessToken?: string;
-  githubAccessToken?: string;
-  accessToken?: string;
-} | null) {
+function getAlternateToken(
+  session: {
+    backendAccessToken?: string;
+    githubAccessToken?: string;
+    accessToken?: string;
+  } | null,
+) {
   if (!session) {
     return undefined;
   }
 
   const primary =
-    session.githubAccessToken ?? session.backendAccessToken ?? session.accessToken;
+    session.githubAccessToken ??
+    session.backendAccessToken ??
+    session.accessToken;
   const alternate =
     primary === session.githubAccessToken
-      ? session.backendAccessToken ?? session.accessToken
+      ? (session.backendAccessToken ?? session.accessToken)
       : session.githubAccessToken;
 
   return alternate !== primary ? alternate : undefined;
@@ -64,7 +65,11 @@ api.interceptors.request.use(async (config) => {
 
   const session = await getSession();
   const retryConfig = config as typeof config & AuthRetryConfig;
-  const token = retryConfig.authToken ?? session?.githubAccessToken ?? session?.accessToken ?? session?.backendAccessToken;
+  const token =
+    retryConfig.authToken ??
+    session?.githubAccessToken ??
+    session?.accessToken ??
+    session?.backendAccessToken;
   if (token) {
     if (!config.headers) {
       config.headers = new AxiosHeaders();
@@ -79,9 +84,16 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const status = error?.response?.status;
-    const config = error?.config as (typeof error.config & AuthRetryConfig) | undefined;
+    const config = error?.config as
+      | (typeof error.config & AuthRetryConfig)
+      | undefined;
 
-    if (status === 401 && config && !config.authRetry && typeof window !== "undefined") {
+    if (
+      status === 401 &&
+      config &&
+      !config.authRetry &&
+      typeof window !== "undefined"
+    ) {
       const session = await getSession();
       const alternateToken = getAlternateToken(session);
 
@@ -94,10 +106,6 @@ api.interceptors.response.use(
         setAuthorizationHeader(config.headers, alternateToken);
         return api.request(config);
       }
-
-      window.location.assign(
-        `/api/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`,
-      );
     }
 
     return Promise.reject(error);
