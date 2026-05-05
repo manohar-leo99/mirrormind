@@ -52,6 +52,7 @@ export const authOptions: NextAuthOptions = {
           user.role = payload.role ?? "developer";
           user.isNewUser = payload.isNewUser ?? false;
           user.backendAccessToken = payload.accessToken;
+          user.githubAccessToken = account?.access_token;
         }
       } catch {
         user.role = "developer";
@@ -61,10 +62,17 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       if (user?.backendAccessToken) {
-        token.accessToken = user.backendAccessToken;
-      } else if (account?.access_token) {
-        token.accessToken = account.access_token;
+        token.backendAccessToken = user.backendAccessToken;
       }
+
+      if (user?.githubAccessToken) {
+        token.githubAccessToken = user.githubAccessToken;
+      } else if (account?.access_token) {
+        token.githubAccessToken = account.access_token;
+      }
+
+      token.accessToken =
+        token.githubAccessToken ?? token.backendAccessToken ?? token.accessToken;
 
       if (user) {
         token.userId = user.id ?? token.sub;
@@ -82,7 +90,10 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role;
         session.user.isNewUser = token.isNewUser;
       }
-      session.accessToken = token.accessToken;
+      session.backendAccessToken = token.backendAccessToken;
+      session.githubAccessToken = token.githubAccessToken;
+      session.accessToken =
+        token.githubAccessToken ?? token.backendAccessToken ?? token.accessToken;
       return session;
     },
   },

@@ -17,27 +17,92 @@ export const api = axios.create({
   timeout: 30000,
 });
 
+type AuthRetryConfig = {
+  authToken?: string;
+  authRetry?: boolean;
+};
+
+function setAuthorizationHeader(
+  headers: unknown,
+  token: string,
+): void {
+  if (!headers) {
+    return;
+  }
+
+  if (headers instanceof AxiosHeaders) {
+    headers.set("Authorization", `Bearer ${token}`);
+    return;
+  }
+
+  (headers as Record<string, string>).Authorization = `Bearer ${token}`;
+}
+
+function getAlternateToken(session: {
+  backendAccessToken?: string;
+  githubAccessToken?: string;
+  accessToken?: string;
+} | null) {
+  if (!session) {
+    return undefined;
+  }
+
+  const primary =
+    session.githubAccessToken ?? session.backendAccessToken ?? session.accessToken;
+  const alternate =
+    primary === session.githubAccessToken
+      ? session.backendAccessToken ?? session.accessToken
+      : session.githubAccessToken;
+
+  return alternate !== primary ? alternate : undefined;
+}
+
 api.interceptors.request.use(async (config) => {
   if (typeof window === "undefined") {
     return config;
   }
 
   const session = await getSession();
-  const token = session?.accessToken;
+  const retryConfig = config as typeof config & AuthRetryConfig;
+  const token = retryConfig.authToken ?? session?.githubAccessToken ?? session?.accessToken ?? session?.backendAccessToken;
   if (token) {
     if (!config.headers) {
       config.headers = new AxiosHeaders();
     }
 
-    if (config.headers instanceof AxiosHeaders) {
-      config.headers.set("Authorization", `Bearer ${token}`);
-    } else {
-      (config.headers as Record<string, string>).Authorization =
-        `Bearer ${token}`;
-    }
+    setAuthorizationHeader(config.headers, token);
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const status = error?.response?.status;
+    const config = error?.config as (typeof error.config & AuthRetryConfig) | undefined;
+
+    if (status === 401 && config && !config.authRetry && typeof window !== "undefined") {
+      const session = await getSession();
+      const alternateToken = getAlternateToken(session);
+
+      if (alternateToken) {
+        config.authRetry = true;
+        config.authToken = alternateToken;
+        if (!config.headers) {
+          config.headers = new AxiosHeaders();
+        }
+        setAuthorizationHeader(config.headers, alternateToken);
+        return api.request(config);
+      }
+
+      window.location.assign(
+        `/api/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`,
+      );
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export async function getTeamInfo() {
   const { data } = await api.get<TeamInfo>("/api/team");
