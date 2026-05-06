@@ -73,6 +73,37 @@ async function proxyRequest(
     return fetch(targetUrl, init);
   };
 
+  const refreshBackendAccessToken = async (refreshToken?: string) => {
+    if (!refreshToken?.trim()) {
+      return undefined;
+    }
+
+    try {
+      const refreshResponse = await fetch(
+        new URL("/api/auth/refresh", backendBaseUrl),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken }),
+        },
+      );
+
+      if (!refreshResponse.ok) {
+        return undefined;
+      }
+
+      const payload = (await refreshResponse.json()) as {
+        accessToken?: string;
+      };
+
+      return payload.accessToken?.trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   let upstreamResponse = await fetchWithToken(authCandidates[0]);
 
   if (
@@ -81,6 +112,19 @@ async function proxyRequest(
     authCandidates[1] !== authCandidates[0]
   ) {
     upstreamResponse = await fetchWithToken(authCandidates[1]);
+  }
+
+  if (
+    upstreamResponse.status === 401 &&
+    sessionToken?.backendRefreshToken?.trim()
+  ) {
+    const refreshedAccessToken = await refreshBackendAccessToken(
+      sessionToken.backendRefreshToken,
+    );
+
+    if (refreshedAccessToken) {
+      upstreamResponse = await fetchWithToken(refreshedAccessToken);
+    }
   }
 
   return new Response(upstreamResponse.body, {
