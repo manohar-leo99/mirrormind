@@ -45,7 +45,14 @@ async function proxyRequest(
     secret: process.env.NEXTAUTH_SECRET,
   });
 
+  const incomingAuthorization = request.headers
+    .get("authorization")
+    ?.trim();
+
   const authCandidates = [
+    incomingAuthorization?.toLowerCase().startsWith("bearer ")
+      ? incomingAuthorization.slice("Bearer ".length).trim()
+      : undefined,
     sessionToken?.githubAccessToken,
     sessionToken?.accessToken,
     sessionToken?.backendAccessToken,
