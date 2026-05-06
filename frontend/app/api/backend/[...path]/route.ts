@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 import { getBackendBaseUrl } from "@/lib/backendUrl";
 
@@ -33,6 +34,20 @@ async function proxyRequest(
 
   const headers = new Headers(request.headers);
   headers.delete("host");
+
+  const sessionToken = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  const authToken =
+    sessionToken?.backendAccessToken ??
+    sessionToken?.accessToken ??
+    sessionToken?.githubAccessToken;
+
+  if (authToken) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+  }
 
   const init: RequestInit = {
     method: request.method,
