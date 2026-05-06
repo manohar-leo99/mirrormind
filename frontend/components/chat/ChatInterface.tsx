@@ -99,10 +99,7 @@ export function ChatInterface() {
       }
     }
 
-    if (response.status === 401 && typeof window !== "undefined") {
-      window.location.assign(
-        `/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`,
-      );
+    if (response.status === 401) {
       throw new Error("Authentication required.");
     }
 
