@@ -35,31 +35,53 @@ async function proxyRequest(
   const headers = new Headers(request.headers);
   headers.delete("host");
 
+  const requestBody =
+    request.method !== "GET" && request.method !== "HEAD"
+      ? await request.arrayBuffer()
+      : undefined;
+
   const sessionToken = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  const authToken =
-    sessionToken?.backendAccessToken ??
-    sessionToken?.accessToken ??
-    sessionToken?.githubAccessToken;
+  const authCandidates = [
+    sessionToken?.githubAccessToken,
+    sessionToken?.accessToken,
+    sessionToken?.backendAccessToken,
+  ].filter((token): token is string => Boolean(token?.trim()));
 
-  if (authToken) {
-    headers.set("Authorization", `Bearer ${authToken}`);
-  }
+  const fetchWithToken = async (authToken?: string) => {
+    const requestHeaders = new Headers(headers);
 
-  const init: RequestInit = {
-    method: request.method,
-    headers,
-    redirect: "manual",
+    if (authToken) {
+      requestHeaders.set("Authorization", `Bearer ${authToken}`);
+    } else {
+      requestHeaders.delete("authorization");
+    }
+
+    const init: RequestInit = {
+      method: request.method,
+      headers: requestHeaders,
+      redirect: "manual",
+    };
+
+    if (requestBody) {
+      init.body = requestBody;
+    }
+
+    return fetch(targetUrl, init);
   };
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = await request.arrayBuffer();
-  }
+  let upstreamResponse = await fetchWithToken(authCandidates[0]);
 
-  const upstreamResponse = await fetch(targetUrl, init);
+  if (
+    upstreamResponse.status === 401 &&
+    authCandidates.length > 1 &&
+    authCandidates[1] !== authCandidates[0]
+  ) {
+    upstreamResponse = await fetchWithToken(authCandidates[1]);
+  }
 
   return new Response(upstreamResponse.body, {
     status: upstreamResponse.status,
