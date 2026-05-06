@@ -4,6 +4,7 @@ declare module "next-auth" {
   interface Session {
     accessToken?: string;
     backendAccessToken?: string;
+    backendRefreshToken?: string;
     githubAccessToken?: string;
     user: DefaultSession["user"] & {
       id?: string;
@@ -19,6 +20,7 @@ declare module "next-auth" {
     role?: "admin" | "developer" | "viewer";
     isNewUser?: boolean;
     backendAccessToken?: string;
+    backendRefreshToken?: string;
     githubAccessToken?: string;
   }
 }
@@ -31,6 +33,7 @@ declare module "next-auth/jwt" {
     isNewUser?: boolean;
     accessToken?: string;
     backendAccessToken?: string;
+    backendRefreshToken?: string;
     githubAccessToken?: string;
   }
 }

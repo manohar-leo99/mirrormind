@@ -46,12 +46,14 @@ export const authOptions: NextAuthOptions = {
             role?: "admin" | "developer" | "viewer";
             isNewUser?: boolean;
             accessToken?: string;
+            refreshToken?: string;
           };
           user.id = payload.userId;
           user.teamId = payload.teamId;
           user.role = payload.role ?? "developer";
           user.isNewUser = payload.isNewUser ?? false;
           user.backendAccessToken = payload.accessToken;
+          user.backendRefreshToken = payload.refreshToken;
           user.githubAccessToken = account?.access_token;
         }
       } catch {
@@ -65,6 +67,10 @@ export const authOptions: NextAuthOptions = {
         token.backendAccessToken = user.backendAccessToken;
       }
 
+      if (user?.backendRefreshToken) {
+        token.backendRefreshToken = user.backendRefreshToken;
+      }
+
       if (user?.githubAccessToken) {
         token.githubAccessToken = user.githubAccessToken;
       } else if (account?.access_token) {
@@ -72,8 +78,8 @@ export const authOptions: NextAuthOptions = {
       }
 
       token.accessToken =
-        token.githubAccessToken ??
         token.backendAccessToken ??
+        token.githubAccessToken ??
         token.accessToken;
 
       if (user) {
@@ -93,10 +99,11 @@ export const authOptions: NextAuthOptions = {
         session.user.isNewUser = token.isNewUser;
       }
       session.backendAccessToken = token.backendAccessToken;
+      session.backendRefreshToken = token.backendRefreshToken;
       session.githubAccessToken = token.githubAccessToken;
       session.accessToken =
-        token.githubAccessToken ??
         token.backendAccessToken ??
+        token.githubAccessToken ??
         token.accessToken;
       return session;
     },

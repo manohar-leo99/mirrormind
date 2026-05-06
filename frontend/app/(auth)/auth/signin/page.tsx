@@ -13,16 +13,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/auth/redirect");
+      router.replace(session?.user?.isNewUser ? "/onboarding" : "/dashboard");
     }
-  }, [router, status]);
+  }, [router, session?.user?.isNewUser, status]);
+
+  if (status !== "unauthenticated") {
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-2 bg-background px-4">
+        <LoadingSpinner />
+        <span className="text-sm text-muted-foreground">
+          Preparing your sign-in session...
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

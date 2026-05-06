@@ -10,43 +10,15 @@ import { SourceCitations } from "@/components/chat/SourceCitations";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import {
+  getFallbackAuthToken,
+  getPrimaryAuthToken,
+  refreshBackendAccessToken,
+} from "@/lib/authTokens";
 import { API_BASE_URL } from "@/lib/api";
-import { fetchClientSession } from "@/lib/session";
+import { fetchClientSession, type AuthSession } from "@/lib/session";
 import { useConversationsQuery } from "@/lib/queries";
 import type { ChatMessage, Citation, Conversation } from "@/types/domain";
-
-type SessionTokens = {
-  accessToken?: string;
-  backendAccessToken?: string;
-  githubAccessToken?: string;
-};
-
-function getPrimaryToken(session: SessionTokens | null) {
-  return (
-    session?.githubAccessToken ??
-    session?.accessToken ??
-    session?.backendAccessToken
-  );
-}
-
-function getFallbackToken(
-  session: SessionTokens | null,
-  primaryToken?: string,
-) {
-  if (!session || !primaryToken) {
-    return undefined;
-  }
-
-  if (primaryToken === session.githubAccessToken) {
-    return session.backendAccessToken ?? session.accessToken;
-  }
-
-  if (primaryToken === session.backendAccessToken) {
-    return session.githubAccessToken ?? session.accessToken;
-  }
-
-  return session.githubAccessToken ?? session.backendAccessToken;
-}
 
 function normalizeConversation(data: Conversation): Conversation {
   return {
@@ -91,7 +63,7 @@ export function ChatInterface() {
     conversationId: string | null,
   ) => {
     const session = await fetchClientSession();
-    const primaryToken = getPrimaryToken(session as SessionTokens | null);
+    const primaryToken = getPrimaryAuthToken(session as AuthSession | null);
     const executeRequest = (token?: string) =>
       fetch(`${API_BASE_URL}/api/query`, {
         method: "POST",
@@ -108,8 +80,18 @@ export function ChatInterface() {
     let response = await executeRequest(primaryToken);
 
     if (response.status === 401) {
-      const fallbackToken = getFallbackToken(
-        session as SessionTokens | null,
+      const refreshedToken = await refreshBackendAccessToken(
+        session?.backendRefreshToken,
+      );
+
+      if (refreshedToken && refreshedToken !== primaryToken) {
+        response = await executeRequest(refreshedToken);
+      }
+    }
+
+    if (response.status === 401) {
+      const fallbackToken = getFallbackAuthToken(
+        session as AuthSession | null,
         primaryToken,
       );
       if (fallbackToken && fallbackToken !== primaryToken) {
@@ -119,7 +101,7 @@ export function ChatInterface() {
 
     if (response.status === 401 && typeof window !== "undefined") {
       window.location.assign(
-        `/api/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`,
+        `/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`,
       );
       throw new Error("Authentication required.");
     }

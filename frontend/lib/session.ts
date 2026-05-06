@@ -1,8 +1,11 @@
 import type { Session } from "next-auth";
 
+import { cacheBackendAccessToken } from "@/lib/authTokens";
+
 export type AuthSession = Session & {
   accessToken?: string;
   backendAccessToken?: string;
+  backendRefreshToken?: string;
   githubAccessToken?: string;
 };
 
@@ -14,12 +17,20 @@ export async function fetchClientSession(): Promise<AuthSession | null> {
     });
 
     if (!response.ok) {
+      cacheBackendAccessToken(undefined);
       return null;
     }
 
     const session = (await response.json()) as AuthSession | null;
+    if (session?.backendAccessToken) {
+      cacheBackendAccessToken(session.backendAccessToken);
+    } else {
+      cacheBackendAccessToken(undefined);
+    }
+
     return session && Object.keys(session).length > 0 ? session : null;
   } catch {
+    cacheBackendAccessToken(undefined);
     return null;
   }
 }

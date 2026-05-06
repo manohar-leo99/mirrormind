@@ -8,6 +8,11 @@ import type {
   TeamMember,
   Conversation,
 } from "@/types/domain";
+import {
+  getFallbackAuthToken,
+  getPrimaryAuthToken,
+  refreshBackendAccessToken,
+} from "@/lib/authTokens";
 import { fetchClientSession } from "@/lib/session";
 
 export const API_BASE_URL = "/api/backend";
@@ -35,29 +40,6 @@ function setAuthorizationHeader(headers: unknown, token: string): void {
   (headers as Record<string, string>).Authorization = `Bearer ${token}`;
 }
 
-function getAlternateToken(
-  session: {
-    backendAccessToken?: string;
-    githubAccessToken?: string;
-    accessToken?: string;
-  } | null,
-) {
-  if (!session) {
-    return undefined;
-  }
-
-  const primary =
-    session.githubAccessToken ??
-    session.backendAccessToken ??
-    session.accessToken;
-  const alternate =
-    primary === session.githubAccessToken
-      ? (session.backendAccessToken ?? session.accessToken)
-      : session.githubAccessToken;
-
-  return alternate !== primary ? alternate : undefined;
-}
-
 api.interceptors.request.use(async (config) => {
   if (typeof window === "undefined") {
     return config;
@@ -65,11 +47,7 @@ api.interceptors.request.use(async (config) => {
 
   const session = await fetchClientSession();
   const retryConfig = config as typeof config & AuthRetryConfig;
-  const token =
-    retryConfig.authToken ??
-    session?.githubAccessToken ??
-    session?.accessToken ??
-    session?.backendAccessToken;
+  const token = retryConfig.authToken ?? getPrimaryAuthToken(session);
   if (token) {
     if (!config.headers) {
       config.headers = new AxiosHeaders();
@@ -95,7 +73,21 @@ api.interceptors.response.use(
       typeof window !== "undefined"
     ) {
       const session = await fetchClientSession();
-      const alternateToken = getAlternateToken(session);
+      const refreshedToken = await refreshBackendAccessToken(
+        session?.backendRefreshToken,
+      );
+
+      if (refreshedToken) {
+        config.authRetry = true;
+        config.authToken = refreshedToken;
+        if (!config.headers) {
+          config.headers = new AxiosHeaders();
+        }
+        setAuthorizationHeader(config.headers, refreshedToken);
+        return api.request(config);
+      }
+
+      const alternateToken = getFallbackAuthToken(session, config.authToken);
 
       if (alternateToken) {
         config.authRetry = true;
