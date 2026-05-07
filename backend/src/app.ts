@@ -38,8 +38,9 @@ function isAllowedOrigin(origin?: string): boolean {
     return true;
   }
 
-  // Keep dev tunnels working even when the quick-tunnel domain rotates.
-  return /\.trycloudflare\.com$/i.test(normalizedOrigin);
+  // Keep dev tunnels and Vercel preview deployments working.
+  return /\.trycloudflare\.com$/i.test(normalizedOrigin)
+    || /\.vercel\.app$/i.test(normalizedOrigin);
 }
 
 app.use(

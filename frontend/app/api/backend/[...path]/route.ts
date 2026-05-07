@@ -45,18 +45,19 @@ async function proxyRequest(
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  const incomingAuthorization = request.headers
-    .get("authorization")
-    ?.trim();
+  const incomingAuthorization = request.headers.get("authorization")?.trim();
 
   const authCandidates = [
+    sessionToken?.backendAccessToken,
+    sessionToken?.accessToken,
     incomingAuthorization?.toLowerCase().startsWith("bearer ")
       ? incomingAuthorization.slice("Bearer ".length).trim()
       : undefined,
     sessionToken?.githubAccessToken,
-    sessionToken?.accessToken,
-    sessionToken?.backendAccessToken,
   ].filter((token): token is string => Boolean(token?.trim()));
+
+  // De-duplicate tokens so we don't retry the same value.
+  const uniqueCandidates = [...new Set(authCandidates)];
 
   const fetchWithToken = async (authToken?: string) => {
     const requestHeaders = new Headers(headers);
@@ -111,16 +112,14 @@ async function proxyRequest(
     }
   };
 
-  let upstreamResponse = await fetchWithToken(authCandidates[0]);
+  // Try each unique candidate token until one succeeds.
+  let upstreamResponse = await fetchWithToken(uniqueCandidates[0]);
 
-  if (
-    upstreamResponse.status === 401 &&
-    authCandidates.length > 1 &&
-    authCandidates[1] !== authCandidates[0]
-  ) {
-    upstreamResponse = await fetchWithToken(authCandidates[1]);
+  for (let i = 1; i < uniqueCandidates.length && upstreamResponse.status === 401; i++) {
+    upstreamResponse = await fetchWithToken(uniqueCandidates[i]);
   }
 
+  // If all candidates failed, try refreshing the backend access token.
   if (
     upstreamResponse.status === 401 &&
     sessionToken?.backendRefreshToken?.trim()

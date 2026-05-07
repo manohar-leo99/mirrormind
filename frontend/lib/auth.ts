@@ -57,7 +57,10 @@ export const authOptions: NextAuthOptions = {
           user.githubAccessToken = account?.access_token;
         }
       } catch {
+        // Backend sync failed, but login should still succeed.
+        // The GitHub token fallback in backend auth middleware will handle auth.
         user.role = "developer";
+        user.githubAccessToken = account?.access_token;
       }
 
       return true;

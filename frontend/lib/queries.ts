@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AxiosError } from "axios";
 
 import {
   connectRepo,
@@ -18,11 +19,18 @@ import {
   updateTeamMemberRole,
 } from "@/lib/api";
 
+function shouldRetry(failureCount: number, error: Error) {
+  const status = (error as AxiosError)?.response?.status;
+  if (status === 401 || status === 403) return false;
+  return failureCount < 1;
+}
+
 export function useTeamQuery() {
   return useQuery({
     queryKey: ["team"],
     queryFn: getTeamInfo,
     staleTime: 5 * 60 * 1000,
+    retry: shouldRetry,
   });
 }
 
@@ -31,6 +39,7 @@ export function useReposQuery() {
     queryKey: ["repos"],
     queryFn: getConnectedRepos,
     staleTime: 60 * 1000,
+    retry: shouldRetry,
   });
 }
 
@@ -38,8 +47,9 @@ export function useIngestionStatusQuery() {
   return useQuery({
     queryKey: ["ingestion-status"],
     queryFn: getIngestionStatus,
-    staleTime: 15 * 1000,
-    refetchInterval: 15 * 1000,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+    retry: shouldRetry,
   });
 }
 
@@ -47,8 +57,9 @@ export function usePullRequestsQuery() {
   return useQuery({
     queryKey: ["pull-requests"],
     queryFn: getPullRequests,
-    staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+    retry: shouldRetry,
   });
 }
 
@@ -57,6 +68,7 @@ export function useConversationsQuery() {
     queryKey: ["conversations"],
     queryFn: getConversations,
     staleTime: 2 * 60 * 1000,
+    retry: shouldRetry,
   });
 }
 
@@ -64,8 +76,8 @@ export function useTeamMembersQuery() {
   return useQuery({
     queryKey: ["team-members"],
     queryFn: getTeamMembers,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30 * 1000,
+    retry: shouldRetry,
   });
 }
 

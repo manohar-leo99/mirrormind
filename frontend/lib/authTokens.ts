@@ -19,10 +19,10 @@ export function getCachedBackendAccessToken() {
 
 export function getPrimaryAuthToken(session: AuthSession | null) {
   return (
-    normalizeToken(session?.githubAccessToken) ??
-    normalizeToken(session?.accessToken) ??
     normalizeToken(session?.backendAccessToken) ??
-    getCachedBackendAccessToken()
+    getCachedBackendAccessToken() ??
+    normalizeToken(session?.accessToken) ??
+    normalizeToken(session?.githubAccessToken)
   );
 }
 
@@ -31,10 +31,10 @@ export function getFallbackAuthToken(
   primaryToken?: string,
 ) {
   const orderedTokens = [
-    normalizeToken(session?.githubAccessToken),
     normalizeToken(session?.backendAccessToken),
-    normalizeToken(session?.accessToken),
     getCachedBackendAccessToken(),
+    normalizeToken(session?.accessToken),
+    normalizeToken(session?.githubAccessToken),
   ].filter((token): token is string => Boolean(token));
 
   for (const token of orderedTokens) {
