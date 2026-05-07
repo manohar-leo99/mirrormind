@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AxiosError } from "axios";
 
 import {
   connectRepo,
@@ -20,7 +19,8 @@ import {
 } from "@/lib/api";
 
 function shouldRetry(failureCount: number, error: Error) {
-  const status = (error as AxiosError)?.response?.status;
+  const axiosError = error as Error & { response?: { status?: number } };
+  const status = axiosError?.response?.status;
   if (status === 401 || status === 403) return false;
   return failureCount < 1;
 }

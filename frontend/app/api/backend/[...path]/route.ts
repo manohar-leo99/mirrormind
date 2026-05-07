@@ -57,7 +57,7 @@ async function proxyRequest(
   ].filter((token): token is string => Boolean(token?.trim()));
 
   // De-duplicate tokens so we don't retry the same value.
-  const uniqueCandidates = [...new Set(authCandidates)];
+  const uniqueCandidates = Array.from(new Set(authCandidates));
 
   const fetchWithToken = async (authToken?: string) => {
     const requestHeaders = new Headers(headers);
