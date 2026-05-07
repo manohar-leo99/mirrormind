@@ -38,9 +38,8 @@ function isAllowedOrigin(origin?: string): boolean {
     return true;
   }
 
-  // Keep dev tunnels and Vercel preview deployments working.
-  return /\.trycloudflare\.com$/i.test(normalizedOrigin)
-    || /\.vercel\.app$/i.test(normalizedOrigin);
+  // Keep dev tunnels working.
+  return /\.trycloudflare\.com$/i.test(normalizedOrigin);
 }
 
 app.use(
