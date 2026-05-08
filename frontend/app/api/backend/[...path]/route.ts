@@ -46,6 +46,7 @@ async function proxyRequest(
   });
 
   const incomingAuthorization = request.headers.get("authorization")?.trim();
+  const githubToken = sessionToken?.githubAccessToken?.trim();
 
   const authCandidates = [
     incomingAuthorization?.toLowerCase().startsWith("bearer ")
@@ -66,6 +67,12 @@ async function proxyRequest(
       requestHeaders.set("Authorization", `Bearer ${authToken}`);
     } else {
       requestHeaders.delete("authorization");
+    }
+
+    if (githubToken) {
+      requestHeaders.set("x-github-token", githubToken);
+    } else {
+      requestHeaders.delete("x-github-token");
     }
 
     const init: RequestInit = {

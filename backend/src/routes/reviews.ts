@@ -173,7 +173,7 @@ router.post(
       throw new ApiError(404, "Not Found", "Repository not found");
     }
 
-    const githubToken = req.user?.authToken;
+    const githubToken = req.user?.githubToken ?? req.user?.authToken;
     if (!githubToken) {
       throw new ApiError(
         400,

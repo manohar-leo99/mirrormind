@@ -119,6 +119,11 @@ export const authMiddleware: RequestHandler = async (req, res, next) => {
       throw new Error("Token is not an access token");
     }
 
+    const githubTokenHeader = req.headers["x-github-token"];
+    const githubToken = Array.isArray(githubTokenHeader)
+      ? githubTokenHeader[0]
+      : githubTokenHeader;
+
     const user = await prisma.user.findUnique({
       where: { id: claims.userId },
     });
@@ -138,6 +143,7 @@ export const authMiddleware: RequestHandler = async (req, res, next) => {
       name: user.name,
       githubId: user.githubId,
       authToken: token,
+      githubToken: githubToken?.trim() || undefined,
     };
 
     next();
@@ -187,6 +193,7 @@ export const authMiddleware: RequestHandler = async (req, res, next) => {
       name: resolvedUser.name,
       githubId: resolvedUser.githubId,
       authToken: token,
+      githubToken: token,
     };
 
     next();

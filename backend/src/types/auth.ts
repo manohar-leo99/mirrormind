@@ -17,4 +17,5 @@ export interface AuthUser {
   name: string | null;
   githubId: string | null;
   authToken?: string;
+  githubToken?: string;
 }
