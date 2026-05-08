@@ -48,11 +48,11 @@ async function proxyRequest(
   const incomingAuthorization = request.headers.get("authorization")?.trim();
 
   const authCandidates = [
-    sessionToken?.backendAccessToken,
-    sessionToken?.accessToken,
     incomingAuthorization?.toLowerCase().startsWith("bearer ")
       ? incomingAuthorization.slice("Bearer ".length).trim()
       : undefined,
+    sessionToken?.backendAccessToken,
+    sessionToken?.accessToken,
     sessionToken?.githubAccessToken,
   ].filter((token): token is string => Boolean(token?.trim()));
 
@@ -115,7 +115,11 @@ async function proxyRequest(
   // Try each unique candidate token until one succeeds.
   let upstreamResponse = await fetchWithToken(uniqueCandidates[0]);
 
-  for (let i = 1; i < uniqueCandidates.length && upstreamResponse.status === 401; i++) {
+  for (
+    let i = 1;
+    i < uniqueCandidates.length && upstreamResponse.status === 401;
+    i++
+  ) {
     upstreamResponse = await fetchWithToken(uniqueCandidates[i]);
   }
 

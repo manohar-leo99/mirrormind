@@ -23,7 +23,7 @@ export async function fetchClientSession(): Promise<AuthSession | null> {
 
     const session = (await response.json()) as AuthSession | null;
     if (session?.backendAccessToken) {
-      cacheBackendAccessToken(session.backendAccessToken);
+      cacheBackendAccessToken(session.backendAccessToken, session.user?.id);
     } else {
       cacheBackendAccessToken(undefined);
     }

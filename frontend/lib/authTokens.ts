@@ -3,14 +3,36 @@ import type { AuthSession } from "@/lib/session";
 const AUTH_API_BASE_URL = "/api/backend";
 
 let cachedBackendAccessToken: string | undefined;
+let cachedBackendAccessTokenUserId: string | undefined;
 
 function normalizeToken(token?: string | null): string | undefined {
   const trimmed = token?.trim();
   return trimmed ? trimmed : undefined;
 }
 
-export function cacheBackendAccessToken(token?: string | null) {
-  cachedBackendAccessToken = normalizeToken(token);
+export function cacheBackendAccessToken(
+  token?: string | null,
+  userId?: string | null,
+) {
+  const normalizedToken = normalizeToken(token);
+
+  if (!normalizedToken) {
+    cachedBackendAccessToken = undefined;
+    cachedBackendAccessTokenUserId = undefined;
+    return;
+  }
+
+  const normalizedUserId = normalizeToken(userId);
+  if (
+    cachedBackendAccessToken &&
+    normalizedUserId &&
+    cachedBackendAccessTokenUserId === normalizedUserId
+  ) {
+    return;
+  }
+
+  cachedBackendAccessToken = normalizedToken;
+  cachedBackendAccessTokenUserId = normalizedUserId;
 }
 
 export function getCachedBackendAccessToken() {
@@ -19,8 +41,8 @@ export function getCachedBackendAccessToken() {
 
 export function getPrimaryAuthToken(session: AuthSession | null) {
   return (
-    normalizeToken(session?.backendAccessToken) ??
     getCachedBackendAccessToken() ??
+    normalizeToken(session?.backendAccessToken) ??
     normalizeToken(session?.accessToken) ??
     normalizeToken(session?.githubAccessToken)
   );
@@ -31,8 +53,8 @@ export function getFallbackAuthToken(
   primaryToken?: string,
 ) {
   const orderedTokens = [
-    normalizeToken(session?.backendAccessToken),
     getCachedBackendAccessToken(),
+    normalizeToken(session?.backendAccessToken),
     normalizeToken(session?.accessToken),
     normalizeToken(session?.githubAccessToken),
   ].filter((token): token is string => Boolean(token));
