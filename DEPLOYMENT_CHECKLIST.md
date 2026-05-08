@@ -1,55 +1,80 @@
-# MirrorMind Railway Deployment
+# MirrorMind Deployment Guide
 
-Deploy everything in one Railway project with separate services for the frontend, backend, AI service, PostgreSQL, Redis, and ChromaDB.
+Frontend is on Vercel. Backend and AI service are on Railway. Databases can be Railway-managed or external.
 
-## Service Layout
+## Clean Service Layout
 
-1. Frontend service root: `frontend`
-2. Backend service root: `backend`
-3. AI service root: `ai-service`
-4. PostgreSQL: Railway managed database service
-5. Redis: Railway managed Redis service
-6. ChromaDB: Railway service or container running Chroma over HTTP
+1. Frontend root folder: `frontend`
+2. Backend root folder: `backend`
+3. AI service root folder: `ai-service`
+4. Database services: Railway Postgres, Railway Redis, and optional Railway Chroma or external services
 
 ## Deployment Order
 
-1. Push the repo to GitHub.
-2. Create a Railway project from this repo.
-3. Add PostgreSQL and Redis to the project.
-4. Add ChromaDB to the project.
-5. Deploy the backend service first.
-6. Deploy the AI service second.
-7. Deploy the frontend service last.
-8. Set the GitHub OAuth callback and webhook URLs.
-9. Run the one-time Prisma schema push for the backend.
-10. Test `/health`, login, repo connect, chat, and PR review.
+1. Push this repo to GitHub.
+2. Deploy the backend on Railway.
+3. Deploy the AI service on Railway.
+4. Create or connect PostgreSQL, Redis, and Chroma.
+5. Deploy the frontend on Vercel.
+6. Paste the final public URLs into the env vars shown below.
+7. Run `npm run prisma:push` once on the backend if the database is empty.
+8. Test login, repo connect, chat, PR review, and team pages.
 
-## URLs You Will Copy Between Services
+## URL Map
 
-1. Frontend public URL: `https://<your-frontend-service>.up.railway.app`
-2. Backend public URL: `https://<your-backend-service>.up.railway.app`
-3. AI service public URL: `https://<your-ai-service>.up.railway.app`
-4. GitHub OAuth callback: `https://<your-frontend-service>.up.railway.app/api/auth/callback/github`
-5. GitHub webhook URL: `https://<your-backend-service>.up.railway.app/api/webhooks/github`
+1. Frontend public URL: `https://<your-project>.vercel.app`
+2. Backend public URL: `https://<your-backend>.up.railway.app`
+3. AI service public URL: `https://<your-ai>.up.railway.app`
+4. GitHub OAuth callback: `https://<your-project>.vercel.app/api/auth/callback/github`
+5. GitHub webhook URL: `https://<your-backend>.up.railway.app/api/webhooks/github`
 
-## Frontend Environment Variables
+==================================================
+FRONTEND (VERCEL)
+==================================================
 
-Use this format in the Railway frontend service:
+1. Folder to deploy:
+frontend
 
-```env
-NEXTAUTH_URL=https://<your-frontend-service>.up.railway.app
+2. Build command:
+npm run build
+
+3. Output directory:
+Leave empty. Vercel auto-detects Next.js.
+
+4. Environment variables to add in Vercel:
+NEXTAUTH_URL=https://<your-project>.vercel.app
 NEXTAUTH_SECRET=<your-long-random-secret>
 GITHUB_CLIENT_ID=<your-github-oauth-client-id>
 GITHUB_CLIENT_SECRET=<your-github-oauth-client-secret>
-BACKEND_URL=https://<your-backend-service>.up.railway.app
-NEXT_PUBLIC_API_URL=https://<your-backend-service>.up.railway.app
-```
+BACKEND_URL=https://<your-backend>.up.railway.app
+NEXT_PUBLIC_API_URL=https://<your-backend>.up.railway.app
 
-## Backend Environment Variables
+What to paste:
+`NEXTAUTH_URL` = your exact Vercel frontend URL.
+`NEXTAUTH_SECRET` = your own random secret string.
+`GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` = values from your GitHub OAuth App.
+`BACKEND_URL` and `NEXT_PUBLIC_API_URL` = your Railway backend public URL.
 
-Use this format in the Railway backend service:
+5. Any changes made:
+- Added Railway-aware auth fallback so the app still works if `NEXTAUTH_URL` is not manually set during runtime.
+- Kept backend proxying through the backend service URL.
+- Removed the stale frontend Railway config.
 
-```env
+==================================================
+BACKEND (RAILWAY)
+==================================================
+
+1. Folder to deploy:
+backend
+
+2. Start command:
+npm run start
+
+3. Build command:
+npm run build
+
+4. Environment variables:
+PORT=4000
 DATABASE_URL=<railway-postgres-connection-string>
 REDIS_URL=<railway-redis-connection-string>
 JWT_SECRET=<your-long-random-secret>
@@ -58,34 +83,95 @@ JWT_REFRESH_EXPIRES_IN=7d
 GITHUB_CLIENT_ID=<your-github-oauth-client-id>
 GITHUB_CLIENT_SECRET=<your-github-oauth-client-secret>
 GITHUB_WEBHOOK_SECRET=<your-github-webhook-secret>
-AI_SERVICE_URL=https://<your-ai-service>.up.railway.app
-FRONTEND_URL=https://<your-frontend-service>.up.railway.app
+AI_SERVICE_URL=https://<your-ai>.up.railway.app
+FRONTEND_URL=https://<your-project>.vercel.app
 SCHEDULED_SYNC_GITHUB_TOKEN=<optional-github-token>
-```
 
-## AI Service Environment Variables
+What to paste:
+`DATABASE_URL` = Railway Postgres connection string.
+`REDIS_URL` = Railway Redis connection string.
+`JWT_SECRET` = your own random secret string.
+`GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` = same GitHub OAuth App values used by the frontend.
+`GITHUB_WEBHOOK_SECRET` = your own random webhook secret, same as GitHub webhook secret.
+`AI_SERVICE_URL` = Railway AI service public URL.
+`FRONTEND_URL` = your exact Vercel frontend URL.
 
-Use this format in the Railway AI service:
+5. Railway settings needed:
+- Use the `backend` folder as the service root.
+- Keep `PORT` set to `4000` or let Railway inject its own port if you prefer, but this code supports Railway's `PORT`.
+- Add Railway Postgres and Redis as linked services.
 
-```env
+6. CORS settings fixed or not:
+Yes. The backend now allows the Vercel frontend origin plus Railway public domains and localhost during development.
+
+==================================================
+AI SERVICE (RAILWAY)
+==================================================
+
+1. Folder to deploy:
+ai-service
+
+2. Start command:
+uvicorn main:app --host 0.0.0.0 --port $PORT
+
+3. Requirements/packages:
+Use `requirements.txt` in `ai-service`.
+
+4. Environment variables:
 GROQ_API_KEY=<your-groq-api-key>
 HUGGINGFACE_API_KEY=<your-huggingface-api-key>
-BACKEND_URL=https://<your-backend-service>.up.railway.app
-CHROMA_HOST=<your-chroma-service-hostname>
+BACKEND_URL=https://<your-backend>.up.railway.app
+CHROMA_HOST=<your-chroma-hostname>
 CHROMA_PORT=8000
 CHROMA_PERSIST_DIR=./.chroma
-```
 
-## Database Setup
+What to paste:
+`GROQ_API_KEY` = your Groq API key.
+`HUGGINGFACE_API_KEY` = your Hugging Face inference key.
+`BACKEND_URL` = Railway backend public URL.
+`CHROMA_HOST` = hostname of your Chroma service, without `https://`.
+`CHROMA_PORT` = Chroma HTTP port.
+`CHROMA_PERSIST_DIR` = local fallback folder for development.
 
-1. Copy the Railway PostgreSQL connection string into `DATABASE_URL` on the backend.
-2. Copy the Railway Redis connection string into `REDIS_URL` on the backend.
-3. If you run Chroma as a separate Railway service, copy its hostname into `CHROMA_HOST` and its HTTP port into `CHROMA_PORT`.
-4. Run `npm run prisma:push` once in the backend service after `DATABASE_URL` is set so the schema exists.
+==================================================
+DATABASE SETUP
+==================================================
 
-## Important Notes
+Which database is used:
+- PostgreSQL for the main app data.
+- Redis for queues, jobs, and workers.
+- Chroma for vector storage.
 
-1. Do not use localhost URLs in production Railway variables.
-2. `BACKEND_URL` is the preferred frontend URL variable. `NEXT_PUBLIC_API_URL` is optional and can mirror the same backend URL.
-3. The frontend and backend GitHub client ID/secret values should match the same GitHub OAuth app.
-4. The AI service must be online for chat, ingestion, and PR review to work.
+How to connect it:
+- Paste Railway PostgreSQL URL into backend `DATABASE_URL`.
+- Paste Railway Redis URL into backend `REDIS_URL`.
+- Paste Chroma host/port into AI service `CHROMA_HOST` and `CHROMA_PORT`.
+
+Where to paste DB URL:
+- Railway backend service environment variables.
+
+Migration commands:
+- `npm run prisma:push` on the backend after `DATABASE_URL` is set.
+- Use `npm run prisma:migrate` only if you are intentionally creating local migrations.
+
+Seed commands if needed:
+- `npm run prisma:seed` from the backend.
+
+==================================================
+FINAL DEPLOYMENT ORDER
+==================================================
+
+1. Deploy backend on Railway.
+2. Deploy AI service on Railway.
+3. Create/connect Postgres, Redis, and Chroma.
+4. Deploy frontend on Vercel.
+5. Paste final URLs into env vars and test login, chat, repo integration, and team pages.
+
+==================================================
+IMPORTANT
+==================================================
+
+- Frontend is Vercel only now.
+- Backend/AI remain Railway.
+- Remove old local or tunnel URLs from production env vars.
+- Use exact public URLs, not internal Railway service names, for cross-service calls.

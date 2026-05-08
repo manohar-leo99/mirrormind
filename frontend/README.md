@@ -13,10 +13,10 @@ npm install
 npm run dev
 ```
 
-## Railway Deployment
+## Vercel Deployment
 
-1. Create a Railway service from the same GitHub repo.
-2. Set the service root directory to `frontend`.
-3. Use `frontend/railway.toml`.
+1. Connect this folder to Vercel as the frontend project.
+2. Leave the build command as `npm run build`.
+3. Leave the output directory empty.
 4. Add the frontend environment variables listed in `DEPLOYMENT_CHECKLIST.md`.
-5. Set the GitHub OAuth callback URL to `https://<your-frontend-domain>/api/auth/callback/github`.
+5. Set the GitHub OAuth callback URL to `https://<your-project>.vercel.app/api/auth/callback/github`.

@@ -39,7 +39,8 @@ function isAllowedOrigin(origin?: string): boolean {
   }
 
   // Keep dev tunnels working.
-  return /\.trycloudflare\.com$/i.test(normalizedOrigin);
+  return /\.trycloudflare\.com$/i.test(normalizedOrigin)
+    || /\.up\.railway\.app$/i.test(normalizedOrigin);
 }
 
 app.use(

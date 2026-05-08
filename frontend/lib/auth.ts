@@ -2,6 +2,9 @@ import type { NextAuthOptions } from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
 
 import { getBackendBaseUrl } from "@/lib/backendUrl";
+import { ensureAuthRuntimeEnv } from "@/lib/runtimeEnv";
+
+ensureAuthRuntimeEnv();
 
 export const authOptions: NextAuthOptions = {
   providers: [
